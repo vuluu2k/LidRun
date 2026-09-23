@@ -12,12 +12,12 @@ const copy = {
     f4Title:'Alerts & webhooks', f4Body:'macOS notifications plus webhooks for Discord, Slack, Teams, and custom JSON endpoints.',
     f5Title:'Global shortcuts', f5Body:'Control Auto Mode, Keep Awake, Closed-Lid, and Stop without leaving the keyboard.',
     f6Title:'Local reports', f6Body:'JSONL activity logs and weekly reports stay on your Mac. No analytics and no account.',
-    installEye:'INSTALL IN ONE MINUTE', installTitle:'Three steps. No Terminal.', gatekeeper:'LidRun is ad-hoc signed to stay free and is not Apple-notarized. The first launch must use the Open context menu.',
-    step1Title:'Download and open the DMG', step1Body:'Drag LidRun.app into the Applications folder.',
-    step2Title:'Control-click LidRun', step2Body:'In Applications, right-click or Control-click the app.',
-    step3Title:'Choose Open twice', step3Body:'Choose Open in the menu, then Open in the warning. macOS remembers your choice.',
+    installEye:'INSTALL IN ONE MINUTE', installTitle:'One command. No Gatekeeper prompt.', gatekeeper:'Paste this into Terminal. It downloads the latest build, verifies its SHA-256, and installs it to Applications without a Gatekeeper warning.',
+    step1Title:'Or download the DMG', step1Body:'Drag LidRun.app into the Applications folder.',
+    step2Title:'Open LidRun once', step2Body:'macOS blocks it because the free build is not Apple-notarized. Click Done.',
+    step3Title:'Open Anyway', step3Body:'Go to System Settings → Privacy &amp; Security and click Open Anyway. macOS remembers your choice.',
     q1:'Is LidRun really free?', a1:'Yes. There is no paid tier, time limit, or usage tracking.',
-    q2:'Why does macOS warn on first launch?', a2:'The free build is not notarized with a paid Apple Developer account. Use Control-click → Open once.',
+    q2:'Why does macOS warn on first launch?', a2:'The free build is not notarized with a paid Apple Developer account. Use the Terminal install command, or System Settings → Privacy &amp; Security → Open Anyway once.',
     q3:'Does Closed-Lid work on every Mac?', a3:'It cannot be guaranteed on every setup. macOS, power, external displays, and hardware can affect it. Test with a non-critical task first.',
     ctaTitle:'Do not let one sleep event end a long-running job.', footer:'Built for long-running work.'
   }
@@ -36,6 +36,7 @@ document.querySelector('#language').addEventListener('click', () => setLanguage(
 setLanguage(language);
 
 document.querySelector('#year').textContent = new Date().getFullYear();
+document.querySelector('#install-command').textContent = `curl -fsSL ${new URL('install.sh', location.href).href.split('#')[0]} | bash`;
 
 const github = location.hostname.endsWith('.github.io') && location.pathname.split('/')[1];
 if (github) {

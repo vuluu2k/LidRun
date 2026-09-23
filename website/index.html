@@ -64,13 +64,14 @@
       <div class="wrap install-grid">
         <div>
           <p class="eyebrow" data-i18n="installEye">CÀI TRONG 1 PHÚT</p>
-          <h2 data-i18n="installTitle">Ba bước, không cần Terminal.</h2>
-          <p class="install-note" data-i18n="gatekeeper">LidRun được ký ad-hoc để phát hành miễn phí, chưa được Apple notarize. Vì vậy lần mở đầu tiên cần dùng menu Open.</p>
+          <h2 data-i18n="installTitle">Một lệnh, không bị macOS chặn.</h2>
+          <p class="install-note" data-i18n="gatekeeper">Dán lệnh này vào Terminal. Script tải bản mới nhất, kiểm tra SHA-256 rồi cài vào Applications, không có cảnh báo Gatekeeper.</p>
+          <pre class="command"><code id="install-command">curl -fsSL https://vuluu2k.github.io/LidRun/install.sh | bash</code></pre>
         </div>
         <ol>
-          <li><span>1</span><div><h3 data-i18n="step1Title">Tải và mở DMG</h3><p data-i18n="step1Body">Kéo LidRun.app vào thư mục Applications.</p></div></li>
-          <li><span>2</span><div><h3 data-i18n="step2Title">Control-click LidRun</h3><p data-i18n="step2Body">Trong Applications, nhấp chuột phải hoặc Control-click ứng dụng.</p></div></li>
-          <li><span>3</span><div><h3 data-i18n="step3Title">Chọn Open hai lần</h3><p data-i18n="step3Body">Chọn Open trong menu, rồi Open trong cảnh báo. macOS sẽ ghi nhớ lựa chọn.</p></div></li>
+          <li><span>1</span><div><h3 data-i18n="step1Title">Hoặc tải DMG</h3><p data-i18n="step1Body">Kéo LidRun.app vào thư mục Applications.</p></div></li>
+          <li><span>2</span><div><h3 data-i18n="step2Title">Mở LidRun một lần</h3><p data-i18n="step2Body">macOS sẽ chặn vì bản miễn phí chưa được Apple notarize. Bấm Done.</p></div></li>
+          <li><span>3</span><div><h3 data-i18n="step3Title">Open Anyway</h3><p data-i18n="step3Body">Vào System Settings → Privacy &amp; Security, bấm Open Anyway. macOS sẽ ghi nhớ lựa chọn.</p></div></li>
         </ol>
       </div>
     </section>
@@ -78,7 +79,7 @@
     <section class="section wrap faq">
       <p class="eyebrow">FAQ</p>
       <details open><summary data-i18n="q1">LidRun có thật sự miễn phí không?</summary><p data-i18n="a1">Có. Không gói trả phí, không giới hạn thời gian và không thu thập dữ liệu sử dụng.</p></details>
-      <details><summary data-i18n="q2">Tại sao macOS cảnh báo khi mở?</summary><p data-i18n="a2">Bản tải miễn phí chưa được notarize bằng tài khoản Apple Developer trả phí. Dùng Control-click → Open ở lần đầu.</p></details>
+      <details><summary data-i18n="q2">Tại sao macOS cảnh báo khi mở?</summary><p data-i18n="a2">Bản tải miễn phí chưa được notarize bằng tài khoản Apple Developer trả phí. Dùng lệnh cài Terminal, hoặc System Settings → Privacy &amp; Security → Open Anyway ở lần đầu.</p></details>
       <details><summary data-i18n="q3">Closed-Lid có hoạt động trên mọi Mac không?</summary><p data-i18n="a3">Không thể đảm bảo trên mọi cấu hình. macOS, nguồn điện, màn hình ngoài và phần cứng có thể ảnh hưởng. Hãy thử với công việc không quan trọng trước.</p></details>
     </section>
 

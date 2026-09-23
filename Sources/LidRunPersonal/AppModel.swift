@@ -168,13 +168,15 @@ final class AppModel: ObservableObject {
             saveSettings()
             return
         }
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
-            Task { @MainActor in
-                self?.alertsEnabled = granted
-                self?.notificationStatus = granted ? "Authorized" : "Denied"
-                self?.saveSettings()
-                if error != nil { self?.errorMessage = "Notifications are unavailable for this app identity. Reinstall the latest build or enable LidRun in System Settings → Notifications." }
+        Task { [weak self] in
+            let granted: Bool
+            do { granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) } catch {
+                granted = false
+                self?.errorMessage = "Notifications are unavailable for this app identity. Reinstall the latest build or enable LidRun in System Settings → Notifications."
             }
+            self?.alertsEnabled = granted
+            self?.notificationStatus = granted ? "Authorized" : "Denied"
+            self?.saveSettings()
         }
     }
 
@@ -311,14 +313,11 @@ final class AppModel: ObservableObject {
     }
 
     private func refreshNotificationStatus() {
-        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
-            let status = settings.authorizationStatus
-            Task { @MainActor in
-                switch status {
-                case .authorized, .provisional: self?.notificationStatus = "Authorized"
-                case .denied: self?.notificationStatus = "Denied"
-                default: self?.notificationStatus = "Not requested"
-                }
+        Task { [weak self] in
+            switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
+            case .authorized, .provisional: self?.notificationStatus = "Authorized"
+            case .denied: self?.notificationStatus = "Denied"
+            default: self?.notificationStatus = "Not requested"
             }
         }
     }
