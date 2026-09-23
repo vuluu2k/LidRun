@@ -31,22 +31,14 @@ guard FileManager.default.isExecutableFile(atPath: resolvedExecutable) else {
 }
 
 // Same guardrails and webhook as the menu bar app (its UserDefaults domain).
-let settings = UserDefaults(suiteName: "io.opensource.lidrun") ?? .standard
-let lowBattery = settings.object(forKey: "lowBatteryPercent") as? Int ?? 5
-let policy = GuardrailPolicy(
-    chargingOnly: settings.bool(forKey: "chargingOnly"),
-    lowBatteryPercent: lowBattery == 0 ? nil : lowBattery,
-    stopOnThermalPressure: settings.object(forKey: "thermalSafety") as? Bool ?? true
-)
+let settings = AppSettings(defaults: UserDefaults(suiteName: AppSettings.domain) ?? .standard)
 
 @MainActor func postWebhook(event: String, reason: String) {
-    guard let value = settings.string(forKey: "webhookURL"), let url = URL(string: value), !value.isEmpty else { return }
+    guard let url = URL(string: settings.webhookURL), !settings.webhookURL.isEmpty else { return }
     var request = URLRequest(url: url, timeoutInterval: 10)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    if let token = settings.string(forKey: "webhookToken"), !token.isEmpty {
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-    }
+    if !settings.webhookToken.isEmpty { request.setValue("Bearer \(settings.webhookToken)", forHTTPHeaderField: "Authorization") }
     request.httpBody = try? WebhookPlatform.detect(url: url).body(event: event, reason: reason)
     let done = DispatchSemaphore(value: 0)
     URLSession.shared.dataTask(with: request) { _, _, _ in done.signal() }.resume()
@@ -54,7 +46,7 @@ let policy = GuardrailPolicy(
 }
 
 do {
-    let result = try CommandRunner().run(executable: resolvedExecutable, arguments: Array(command.dropFirst()), policy: policy)
+    let result = try CommandRunner().run(executable: resolvedExecutable, arguments: Array(command.dropFirst()), policy: settings.guardrailPolicy)
     let summary = "\(command.joined(separator: " ")) exited \(result.exitCode) after \(Int(result.duration))s"
         + (result.safetyStop.map { " (stopped keeping awake: \($0.rawValue))" } ?? "")
     postWebhook(event: "command_finished", reason: summary)

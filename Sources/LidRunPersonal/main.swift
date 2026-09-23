@@ -4,7 +4,7 @@ import SwiftUI
 import UserNotifications
 
 @MainActor
-final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
     private let model = AppModel()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
@@ -30,6 +30,8 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
         ])
         model.setHotKeysReady(hotKeys?.isReady == true)
 
+        // SwiftUI onAppear fires when the popover is built, not shown, so track visibility here.
+        popover.delegate = self
         popover.behavior = .transient
         popover.animates = true
         popover.contentSize = NSSize(width: 330, height: 510)
@@ -65,6 +67,10 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
         model.shutdown()
     }
 
+    func popoverDidShow(_ notification: Notification) { model.setPanelVisible(true) }
+    func popoverDidClose(_ notification: Notification) { model.setPanelVisible(false) }
+    func windowWillClose(_ notification: Notification) { model.setPanelVisible(false) }
+
     @objc private func togglePopover() {
         popover.isShown ? popover.performClose(nil) : showPopover()
     }
@@ -84,10 +90,12 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
             window.styleMask = [.titled, .closable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.center()
             fallbackWindow = window
         }
         model.refresh()
+        model.setPanelVisible(true)
         fallbackWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

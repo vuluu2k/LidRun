@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="LidRun keeps long-running work awake on macOS with local automation and safety guardrails.">
+  <meta name="description" content="LidRun Personal keeps long-running work awake on macOS with local automation and safety guardrails. Free and open source.">
   <meta name="theme-color" content="#171316">
-  <title>LidRun — Keep work running on macOS</title>
+  <title>LidRun Personal — Keep work running on macOS</title>
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
 <body>
   <header class="nav wrap">
-    <a class="brand" href="#top" aria-label="LidRun home"><span class="brand-mark">◒</span>LidRun</a>
+    <a class="brand" href="#top" aria-label="LidRun Personal home"><span class="brand-mark">◒</span>LidRun Personal</a>
     <nav>
       <a href="#features" data-i18n="navFeatures">Tính năng</a>
       <a href="#install" data-i18n="navInstall">Cài đặt</a>
@@ -34,7 +34,67 @@
       </div>
       <div class="preview">
         <div class="glow"></div>
-        <img src="assets/lidrun-panel.png" alt="LidRun menu bar control panel" width="485" height="632">
+        <div class="mock" role="img" aria-label="Bảng điều khiển LidRun Personal trên menu bar: đang sạc, Giữ máy thức đang bật, trạng thái Đang bảo vệ">
+          <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+            <defs>
+              <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 2 4.5 13.5h6.5L10 22l9-11.5h-6.5z" fill="currentColor" stroke="none"/></symbol>
+              <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="11" rx="2.2" fill="currentColor" stroke="none"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></symbol>
+              <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+              <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2.5h4"/></symbol>
+              <symbol id="i-lid" viewBox="0 0 24 24"><path d="M4.5 16V8.5a1.5 1.5 0 0 1 1.5-1.5h2M16 7h2a1.5 1.5 0 0 1 1.5 1.5V16M2 19.5h20M12 3v10M8.8 9.8 12 13l3.2-3.2"/></symbol>
+              <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5.5" y="5.5" width="13" height="13" rx="2.5" fill="currentColor" stroke="none"/></symbol>
+              <symbol id="i-gauge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m12 12-3.2-4"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><path d="M7 14.5h.01M17 14.5h.01M12 6.5h.01M16 9h.01"/></symbol>
+              <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="18" rx="2.2"/><path d="M9 2.5h6v3H9zM9 11h6M9 15h6"/></symbol>
+              <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></symbol>
+              <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2" stroke-width="3" stroke-dasharray="3.2 3.24" stroke-linecap="butt"/><circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.4"/></symbol>
+              <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8.5M6.4 6.5a8 8 0 1 0 11.2 0"/></symbol>
+              <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2.5"/><path d="M22.5 10.5v3"/><rect x="4.5" y="9.5" width="13" height="5" rx="1" fill="currentColor" stroke="none"/></symbol>
+              <symbol id="i-temp" viewBox="0 0 24 24"><path d="M14 14.6V5a2 2 0 0 0-4 0v9.6a4 4 0 1 0 4 0z"/><path d="M12 11v6"/></symbol>
+              <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx=".5"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
+              <symbol id="i-fan" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4C10 6 11 3 14 3c3 0 3 4.5-.6 7.6M13.5 12.6c4.7.6 7 2.9 5.5 5.5s-5.3.2-6.4-4.3M10.5 12.6c-3 3.7-6.2 4.4-7.6 1.8-1.5-2.6 2.5-4.7 7-3.4"/></symbol>
+              <symbol id="i-laptop" viewBox="0 0 24 24"><path d="M4.5 16V6.5A1.5 1.5 0 0 1 6 5h12a1.5 1.5 0 0 1 1.5 1.5V16M2 19h20"/></symbol>
+              <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+              <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.3" r="1.2" fill="currentColor" stroke="none"/></symbol>
+              <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></symbol>
+            </defs>
+          </svg>
+          <div class="mb">
+            <span class="mb-app"><svg><use href="#i-bolt"/></svg></span>
+            <svg><use href="#i-wifi"/></svg>
+            <svg><use href="#i-battery"/></svg>
+            <svg><use href="#i-search"/></svg>
+            <span>9:41</span>
+          </div>
+          <div class="pn">
+            <div class="pn-head">
+              <span class="pn-logo"><svg><use href="#i-bolt"/></svg></span>
+              <span class="pn-title"><b>LidRun</b><small data-i18n="panelReady">Sẵn sàng</small></span>
+              <span class="pn-badge"><svg><use href="#i-bolt"/></svg><span data-i18n="panelCharging">Đang sạc</span></span>
+            </div>
+            <div class="pn-metrics">
+              <span><svg><use href="#i-battery"/></svg>100%</span>
+              <span class="hot"><svg><use href="#i-temp"/></svg>94°C</span>
+              <span><svg><use href="#i-cpu"/></svg>29%</span>
+              <span><svg><use href="#i-fan"/></svg>2417</span>
+              <span><svg><use href="#i-laptop"/></svg>On</span>
+            </div>
+            <hr>
+            <div class="pn-row"><svg><use href="#i-lock"/></svg><span data-i18n="panelAutoMode">Chế độ tự động</span><kbd>⌃⌥A</kbd><i class="sw"></i></div>
+            <div class="pn-row"><svg><use href="#i-eye"/></svg><span data-i18n="panelKeepAwake">Giữ máy thức</span><kbd>⌃⌥S</kbd><i class="sw on live"></i></div>
+            <div class="pn-row"><svg class="orange"><use href="#i-bolt"/></svg><span data-i18n="panelChargingOnly">Chỉ khi đang sạc</span><i class="sw on"></i></div>
+            <div class="pn-row"><svg class="dim"><use href="#i-timer"/></svg><span data-i18n="panelTimer">Hẹn giờ</span><kbd>2h</kbd><svg class="chev"><use href="#i-down"/></svg></div>
+            <div class="pn-row"><svg><use href="#i-lid"/></svg><span data-i18n="panelClosedLid">Chế độ đóng nắp</span><kbd>⌃⌥L</kbd><i class="sw"></i></div>
+            <div class="pn-row"><svg><use href="#i-lock"/></svg><span data-i18n="panelCooling">Bảo vệ nhiệt</span><i class="sw on"></i></div>
+            <div class="pn-row"><svg class="red"><use href="#i-stop"/></svg><span data-i18n="panelStop">Dừng</span><kbd>⌃⌥X</kbd></div>
+            <hr>
+            <div class="pn-row"><svg><use href="#i-gauge"/></svg><span data-i18n="panelStatus">Trạng thái</span><em data-i18n="panelProtected">Đang bảo vệ</em></div>
+            <div class="pn-row"><svg><use href="#i-clip"/></svg><span data-i18n="panelTasks">Tác vụ &amp; Báo cáo</span><em>›</em></div>
+            <div class="pn-row"><svg><use href="#i-bell"/></svg><span data-i18n="panelNotifications">Thông báo &amp; Webhook</span><em>On</em></div>
+            <hr>
+            <div class="pn-row"><svg><use href="#i-gear"/></svg><span data-i18n="panelSettings">Cài đặt</span><em>›</em></div>
+            <div class="pn-row pn-quit"><svg><use href="#i-power"/></svg><span data-i18n="panelQuit">Thoát LidRun</span><b class="pn-update" data-i18n="panelUpdate">Cập nhật v0.1.15</b></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -51,12 +111,12 @@
       <p class="eyebrow" data-i18n="featuresEye">NHỎ GỌN, NHƯNG ĐỦ DÙNG</p>
       <h2 data-i18n="featuresTitle">Tập trung vào công việc, không phải cài đặt nguồn điện.</h2>
       <div class="cards">
-        <article><b>01</b><h3 data-i18n="f1Title">Auto Mode</h3><p data-i18n="f1Body">Tự giữ máy thức khi phát hiện Claude Code, Cursor, Docker, Ollama hoặc process bạn chọn.</p></article>
-        <article><b>02</b><h3 data-i18n="f2Title">Closed-Lid Mode</h3><p data-i18n="f2Body">Giữ phiên làm việc khi đóng nắp và dùng màn hình ngoài. Hiệu quả còn phụ thuộc phần cứng và nguồn điện.</p></article>
-        <article><b>03</b><h3 data-i18n="f3Title">Safety first</h3><p data-i18n="f3Body">Tự dừng theo pin yếu, mất sạc hoặc nhiệt độ nguy hiểm. Hiển thị CPU, pin, nhiệt và quạt thực.</p></article>
-        <article><b>04</b><h3 data-i18n="f4Title">Alerts & webhooks</h3><p data-i18n="f4Body">Thông báo macOS cùng webhook cho Discord, Slack, Teams và endpoint JSON riêng.</p></article>
-        <article><b>05</b><h3 data-i18n="f5Title">Phím tắt toàn cục</h3><p data-i18n="f5Body">Điều khiển Auto Mode, Keep Awake, Closed-Lid và Stop mà không rời bàn phím.</p></article>
-        <article><b>06</b><h3 data-i18n="f6Title">Báo cáo cục bộ</h3><p data-i18n="f6Body">Nhật ký JSONL và báo cáo tuần nằm trên máy bạn. Không analytics, không tài khoản.</p></article>
+        <article><b>01</b><h3 data-i18n="f1Title">Auto Mode</h3><p data-i18n="f1Body">Tự giữ máy thức khi phát hiện Claude Code, Cursor, Docker, Ollama. Tuỳ chọn nhận diện mở rộng cho Python, Node, SSH/rsync, build Xcode và truyền mạng lớn (&gt;~1 MB/s), cùng quy tắc process riêng.</p></article>
+        <article><b>02</b><h3 data-i18n="f2Title">Closed-Lid Mode</h3><p data-i18n="f2Body">Tiếp tục chạy khi gập nắp. Mặc định cần cắm sạc (giới hạn của macOS). Bật “Full Closed-Lid” trong Settings: nhập mật khẩu admin một lần để cài quy tắc sudoers chỉ cho phép <code>pmset -a disablesleep 0|1</code>, nên chạy được cả khi dùng pin. Sleep luôn được khôi phục khi dừng, dừng an toàn, thoát hoặc mở lại app; có checklist an toàn trước lần dùng đầu.</p></article>
+        <article><b>03</b><h3 data-i18n="f3Title">An toàn là trên hết</h3><p data-i18n="f3Body">Tự dừng khi rút sạc (Only When Charging), pin yếu (và cho Mac sleep trước khi cạn pin), hoặc macOS báo nhiệt serious/critical. Watchdog giới hạn thời gian chạy tối đa. Nếu dừng an toàn lúc đang gập nắp, Mac sleep ngay.</p></article>
+        <article><b>04</b><h3 data-i18n="f4Title">Run Command</h3><p data-i18n="f4Body"><code>apprun -- &lt;lệnh&gt;</code> giữ Mac thức tới khi lệnh kết thúc, trả về đúng exit code, dùng cài đặt an toàn của app và gửi webhook <code>command_finished</code>. <code>apprun --sleep -- &lt;lệnh&gt;</code> cho Mac sleep khi xong.</p></article>
+        <article><b>05</b><h3 data-i18n="f5Title">Thông báo &amp; webhook</h3><p data-i18n="f5Body">Thông báo macOS cùng webhook cho Discord, Slack, Teams hoặc JSON tuỳ ý, có thể kèm bearer token.</p></article>
+        <article><b>06</b><h3 data-i18n="f6Title">Cập nhật một chạm &amp; báo cáo cục bộ</h3><p data-i18n="f6Body">Nút “Update to vX” ngay trong app. Báo cáo tuần và nhật ký JSONL nằm trên máy bạn. Phím tắt toàn cục ⌃⌥A/S/L/X.</p></article>
       </div>
     </section>
 
@@ -65,12 +125,12 @@
         <div>
           <p class="eyebrow" data-i18n="installEye">CÀI TRONG 1 PHÚT</p>
           <h2 data-i18n="installTitle">Một lệnh, không bị macOS chặn.</h2>
-          <p class="install-note" data-i18n="gatekeeper">Dán lệnh này vào Terminal. Script tải bản mới nhất, kiểm tra SHA-256 rồi cài vào Applications, không có cảnh báo Gatekeeper.</p>
+          <p class="install-note" data-i18n="gatekeeper">Dán lệnh này vào Terminal. Script tải bản mới nhất, kiểm tra SHA-256 rồi cài vào Applications, không có cảnh báo Gatekeeper. Bản đã cài tự cập nhật ngay trong app.</p>
           <div class="command"><code id="install-command">curl -fsSL https://vuluu2k.github.io/LidRun/install.sh | bash</code><button type="button" id="copy-command" data-i18n="copy">Sao chép</button></div>
         </div>
         <ol>
-          <li><span>1</span><div><h3 data-i18n="step1Title">Hoặc tải DMG</h3><p data-i18n="step1Body">Kéo LidRun.app vào thư mục Applications.</p></div></li>
-          <li><span>2</span><div><h3 data-i18n="step2Title">Mở LidRun một lần</h3><p data-i18n="step2Body">macOS sẽ chặn vì bản miễn phí chưa được Apple notarize. Bấm Done.</p></div></li>
+          <li><span>1</span><div><h3 data-i18n="step1Title">Hoặc tải DMG</h3><p data-i18n="step1Body">Kéo LidRun Personal.app vào thư mục Applications.</p></div></li>
+          <li><span>2</span><div><h3 data-i18n="step2Title">Mở app một lần</h3><p data-i18n="step2Body">macOS sẽ chặn vì bản miễn phí chưa được Apple notarize. Bấm Done.</p></div></li>
           <li><span>3</span><div><h3 data-i18n="step3Title">Open Anyway</h3><p data-i18n="step3Body">Vào System Settings → Privacy &amp; Security, bấm Open Anyway. macOS sẽ ghi nhớ lựa chọn.</p></div></li>
         </ol>
       </div>
@@ -78,9 +138,10 @@
 
     <section class="section wrap faq">
       <p class="eyebrow">FAQ</p>
-      <details open><summary data-i18n="q1">LidRun có thật sự miễn phí không?</summary><p data-i18n="a1">Có. Không gói trả phí, không giới hạn thời gian và không thu thập dữ liệu sử dụng.</p></details>
+      <details open><summary data-i18n="q1">LidRun Personal có thật sự miễn phí không?</summary><p data-i18n="a1">Có. Không gói trả phí, không giới hạn thời gian và không thu thập dữ liệu sử dụng.</p></details>
       <details><summary data-i18n="q2">Tại sao macOS cảnh báo khi mở?</summary><p data-i18n="a2">Bản tải miễn phí chưa được notarize bằng tài khoản Apple Developer trả phí. Dùng lệnh cài Terminal, hoặc System Settings → Privacy &amp; Security → Open Anyway ở lần đầu.</p></details>
-      <details><summary data-i18n="q3">Closed-Lid có hoạt động trên mọi Mac không?</summary><p data-i18n="a3">Không thể đảm bảo trên mọi cấu hình. macOS, nguồn điện, màn hình ngoài và phần cứng có thể ảnh hưởng. Hãy thử với công việc không quan trọng trước.</p></details>
+      <details><summary data-i18n="q3">Closed-Lid có hoạt động trên mọi Mac không?</summary><p data-i18n="a3">Mặc định Closed-Lid cần cắm sạc vì macOS chỉ cho phép như vậy. Muốn chạy bằng pin khi gập nắp, hãy bật Full Closed-Lid trong Settings. Dù cách nào, luôn để thoáng khe tản nhiệt, không bao giờ bỏ Mac vào túi khi đang chạy, và thử với công việc không quan trọng trước.</p></details>
+      <details><summary data-i18n="q4">LidRun Personal có liên quan tới lidrun.com không?</summary><p data-i18n="a4">Không. Đây là dự án mã nguồn mở độc lập, không liên kết với sản phẩm thương mại LidRun tại lidrun.com. App được đổi tên thành “LidRun Personal” để tránh nhầm lẫn.</p></details>
     </section>
 
     <section class="cta wrap">
@@ -90,6 +151,6 @@
     </section>
   </main>
 
-  <footer class="wrap"><span>© <span id="year"></span> LidRun · <a href="https://github.com/vuluu2k/LidRun/blob/main/LICENSE">MIT License</a></span><span data-i18n="footer">Built for long-running work.</span></footer>
+  <footer class="wrap"><span>© <span id="year"></span> LidRun Personal · <a href="https://github.com/vuluu2k/LidRun/blob/main/LICENSE">MIT License</a></span><span data-i18n="footer">Built for long-running work.</span></footer>
 </body>
 </html>

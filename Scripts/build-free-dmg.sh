@@ -5,7 +5,7 @@ cd "$(dirname "$0")/.."
 VERSION="${VERSION:-0.1.0}"
 DIST="$PWD/dist"
 STAGE="$DIST/dmg-root"
-APP="$STAGE/LidRun.app"
+APP="$STAGE/LidRun Personal.app"
 DMG="$DIST/LidRun-$VERSION-unsigned.dmg"
 
 rm -rf "$STAGE" "$DMG"
@@ -15,7 +15,7 @@ ln -s /Applications "$STAGE/Applications"
 cat > "$STAGE/INSTALL.txt" <<'TXT'
 LidRun — free open-source build
 
-1. Drag LidRun.app to Applications.
+1. Drag LidRun Personal.app to Applications.
 2. Open LidRun once; macOS blocks it. Click Done.
 3. System Settings → Privacy & Security → Open Anyway. macOS remembers this choice.
 

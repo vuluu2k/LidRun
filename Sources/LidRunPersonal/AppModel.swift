@@ -50,6 +50,9 @@ final class AppModel: ObservableObject {
     private static let site = "https://vuluu2k.github.io/LidRun/"
     /// Set when the user stops an Auto session; Auto Mode waits until the workloads end before re-arming.
     private var autoPaused = false
+    private var closedLidChecklistAccepted = false
+    private var heatWarned = false
+    private var panelVisible = false
 
     init() {
         // Recover from a crash that left `disablesleep 1` behind.
@@ -63,16 +66,26 @@ final class AppModel: ObservableObject {
         monitor = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
-        ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.now = Date() }
-        }
         checkForUpdate()
         updateChecker = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.checkForUpdate() }
         }
+    }
+
+    /// The 1 s metric and clock timers only feed the panel; run them while it is open (idle CPU was 1–2%).
+    func setPanelVisible(_ visible: Bool) {
+        panelVisible = visible
+        if visible { refresh() }
+        metricsMonitor?.invalidate()
+        ticker?.invalidate()
+        guard visible else { metricsMonitor = nil; ticker = nil; return }
+        now = Date()
         updateSystemMetrics()
         metricsMonitor = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.updateSystemMetrics() }
+        }
+        ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.now = Date() }
         }
     }
 
@@ -168,6 +181,7 @@ final class AppModel: ObservableObject {
 
     func setClosedLid(_ enabled: Bool) {
         guard enabled else { releaseClosedLid(); return }
+        guard confirmClosedLidChecklist() else { return }
         snapshot = guardrailReader.snapshot()
         // Without the helper only PreventSystemSleep is available: honoured on AC power, not on a closed lid on battery.
         guard closedLidHelperInstalled || isCharging else {
@@ -191,6 +205,22 @@ final class AppModel: ObservableObject {
         } catch {
             errorMessage = String(describing: error)
         }
+    }
+
+    /// Safety checklist before closing the lid (spec PRO-01); "Don't show again" remembers the answer.
+    private func confirmClosedLidChecklist() -> Bool {
+        if closedLidChecklistAccepted { return true }
+        let alert = NSAlert()
+        alert.messageText = L10n.text("checklistTitle", language)
+        alert.informativeText = L10n.text("checklistBody", language)
+        alert.addButton(withTitle: L10n.text("checklistConfirm", language))
+        alert.addButton(withTitle: L10n.text("cancel", language))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = L10n.text("dontShowAgain", language)
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return false }
+        if alert.suppressionButton?.state == .on { closedLidChecklistAccepted = true; saveSettings() }
+        return true
     }
 
     func setExtendedDetection(_ enabled: Bool) { extendedDetection = enabled; saveSettings(); refresh() }
@@ -285,12 +315,15 @@ final class AppModel: ObservableObject {
 
     func refresh() {
         snapshot = guardrailReader.snapshot()
-        let custom = customProcessRules.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        workloads = WorkloadDetector.detect(in: processList.processes(), customNeedles: custom, extended: extendedDetection)
-        if extendedDetection, let rate = network.rate(), rate > 1_000_000 {  // ~1 MB/s; idle background traffic sits around 200 KB/s
-            workloads.append(DevWorkload(label: "Network transfer", process: RunningProcess(name: "network", command: "\(Int(rate / 1000)) KB/s")))
+        // Scanning processes and re-reading the log are the expensive parts; skip them when nobody needs them.
+        if autoModeEnabled || panelVisible {
+            let custom = customProcessRules.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            workloads = WorkloadDetector.detect(in: processList.processes(), customNeedles: custom, extended: extendedDetection)
+            if extendedDetection, let rate = network.rate(), rate > 1_000_000 {  // ~1 MB/s; idle background traffic sits around 200 KB/s
+                workloads.append(DevWorkload(label: "Network transfer", process: RunningProcess(name: "network", command: "\(Int(rate / 1000)) KB/s")))
+            }
         }
-        recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? []
+        if panelVisible { recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? [] }
         evaluateAutoMode()
         evaluateSafety()
     }
@@ -314,9 +347,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private var policy: GuardrailPolicy {
-        GuardrailPolicy(chargingOnly: chargingOnly, lowBatteryPercent: lowBatteryPercent, stopOnThermalPressure: thermalSafety)
-    }
+    private var policy: GuardrailPolicy { settings.guardrailPolicy }
 
     private func sessionChanged(_ state: SessionState) {
         session = state
@@ -329,7 +360,7 @@ final class AppModel: ObservableObject {
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
             publish(title: "LidRun stopped", body: reason, event: "stopped")
         }
-        recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? []
+        if panelVisible { recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? [] }
     }
 
     private static let reportEventLimit = 2000
@@ -341,14 +372,15 @@ final class AppModel: ObservableObject {
     }
 
     private func evaluateAutoMode() {
-        guard autoModeEnabled else { return }
         if workloads.isEmpty { autoPaused = false }
-        if isAutoSession, workloads.isEmpty {
-            controller.stop(reason: .workloadFinished)
-        } else if !session.isActive, !workloads.isEmpty, !autoPaused, guardrailBlock == nil {
-            // Without the guardrail check a blocked session restarted every refresh, then stopped again.
-            let labels = Array(Set(workloads.map(\.label))).sorted()
-            start { try controller.startAuto(workloads: labels) }
+        let action = AutoMode.decide(
+            enabled: autoModeEnabled, sessionActive: session.isActive, isAutoSession: isAutoSession,
+            workloads: workloads.map(\.label), paused: autoPaused, blocked: guardrailBlock != nil
+        )
+        switch action {
+        case .stop: controller.stop(reason: .workloadFinished)
+        case .start(let labels): start { try controller.startAuto(workloads: labels) }
+        case .none: break
         }
     }
 
@@ -360,6 +392,16 @@ final class AppModel: ObservableObject {
             controller.stop(reason: reason)
             // Releasing is not enough when the lid is shut or the battery is nearly empty: sleep now, as lidrun.com does.
             if reason == .lowBattery || (lidMode && SystemSleep.isLidClosed) { SystemSleep.sleepNow() }
+            return
+        }
+        // A shut lid traps heat: warn at "fair", before the serious/critical stop.
+        if closedLidEnabled, snapshot.thermalPressure == .fair {
+            if !heatWarned {
+                heatWarned = true
+                publish(title: L10n.text("heatWarningTitle", language), body: L10n.text("heatWarningBody", language), event: "thermal_warning")
+            }
+        } else if snapshot.thermalPressure == .nominal {
+            heatWarned = false
         }
     }
 
@@ -465,41 +507,43 @@ final class AppModel: ObservableObject {
     }
 
     private func loadSettings() {
-        let defaults = UserDefaults.standard
-        autoModeEnabled = defaults.bool(forKey: "autoMode")
-        chargingOnly = defaults.bool(forKey: "chargingOnly")
-        thermalSafety = defaults.object(forKey: "thermalSafety") as? Bool ?? true
-        alertsEnabled = defaults.bool(forKey: "alerts")
-        webhookURL = defaults.string(forKey: "webhookURL") ?? ""
-        webhookToken = defaults.string(forKey: "webhookToken") ?? ""
-        customProcessRules = defaults.string(forKey: "customProcessRules") ?? ""
+        let settings = AppSettings(defaults: .standard)
+        autoModeEnabled = settings.autoMode
+        extendedDetection = settings.extendedDetection
+        chargingOnly = settings.chargingOnly
+        thermalSafety = settings.thermalSafety
+        alertsEnabled = settings.alerts
+        lowBatteryPercent = settings.lowBatteryPercent
+        watchdogMinutes = settings.watchdogMinutes
+        webhookURL = settings.webhookURL
+        webhookToken = settings.webhookToken
+        customProcessRules = settings.customProcessRules
+        language = AppLanguage(rawValue: settings.language) ?? .english
+        closedLidChecklistAccepted = settings.closedLidChecklistAccepted
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        extendedDetection = defaults.bool(forKey: "extendedDetection")
-        language = AppLanguage(rawValue: defaults.string(forKey: "language") ?? "en") ?? .english
-        watchdogMinutes = (defaults.object(forKey: "watchdogMinutes") as? Int ?? 480).nilIfZero
-        lowBatteryPercent = (defaults.object(forKey: "lowBatteryPercent") as? Int ?? 5).nilIfZero
     }
 
-    private func saveSettings() {
-        let defaults = UserDefaults.standard
-        defaults.set(autoModeEnabled, forKey: "autoMode")
-        defaults.set(chargingOnly, forKey: "chargingOnly")
-        defaults.set(thermalSafety, forKey: "thermalSafety")
-        defaults.set(alertsEnabled, forKey: "alerts")
-        defaults.set(webhookURL, forKey: "webhookURL")
-        defaults.set(webhookToken, forKey: "webhookToken")
-        defaults.set(customProcessRules, forKey: "customProcessRules")
-        defaults.set(extendedDetection, forKey: "extendedDetection")
-        defaults.set(language.rawValue, forKey: "language")
-        defaults.set(watchdogMinutes ?? 0, forKey: "watchdogMinutes")
-        defaults.set(lowBatteryPercent ?? 0, forKey: "lowBatteryPercent")
+    private var settings: AppSettings {
+        var settings = AppSettings()
+        settings.autoMode = autoModeEnabled
+        settings.extendedDetection = extendedDetection
+        settings.chargingOnly = chargingOnly
+        settings.thermalSafety = thermalSafety
+        settings.alerts = alertsEnabled
+        settings.lowBatteryPercent = lowBatteryPercent
+        settings.watchdogMinutes = watchdogMinutes
+        settings.webhookURL = webhookURL
+        settings.webhookToken = webhookToken
+        settings.customProcessRules = customProcessRules
+        settings.language = language.rawValue
+        settings.closedLidChecklistAccepted = closedLidChecklistAccepted
+        return settings
     }
+
+    private func saveSettings() { settings.save(to: .standard) }
 }
 
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
-private extension Int {
-    var nilIfZero: Int? { self == 0 ? nil : self }
-}

@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 CONFIGURATION="${CONFIGURATION:-debug}"
 VERSION="${VERSION:-0.1.0}"
-APP="${APP_OUTPUT:-$PWD/.build/LidRun.app}"
+APP="${APP_OUTPUT:-$PWD/.build/LidRun Personal.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 swift build -c "$CONFIGURATION" --product lidrun-personal
@@ -29,7 +29,8 @@ cat > "$CONTENTS/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIdentifier</key><string>io.opensource.lidrun</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleName</key><string>LidRun</string>
+  <key>CFBundleName</key><string>LidRun Personal</string>
+  <key>CFBundleDisplayName</key><string>LidRun Personal</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>${BUILD_NUMBER:-1}</string>
