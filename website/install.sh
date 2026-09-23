@@ -27,7 +27,8 @@ fi
 hdiutil attach -quiet -nobrowse -mountpoint "$TMP/mnt" "$TMP/LidRun.dmg"
 # Stop every running copy of this app, wherever it lives: if another copy stays up, `open` below just
 # activates it (same bundle id) and the freshly installed version never launches.
-for pid in $(pgrep -f '[.]app/Contents/MacOS/LidRun( |$)' || true); do
+# -a: macOS pgrep skips its own ancestors by default, and during an in-app update the app IS an ancestor.
+for pid in $(pgrep -a -f '[.]app/Contents/MacOS/LidRun( |$)' || true); do
   running="$(ps -o command= -p "$pid" | sed 's|/Contents/MacOS/LidRun.*$||')"
   if ours "$running"; then kill "$pid" 2>/dev/null || true; fi
 done

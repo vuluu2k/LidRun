@@ -55,7 +55,7 @@ final class AppModel: ObservableObject {
     private var metricsMonitor: Timer?
     private var watchdog: Timer?
     private var updateChecker: Timer?
-    private static let site = "https://vuluu2k.github.io/LidRun/"
+    private nonisolated static let site = "https://vuluu2k.github.io/LidRun/"
     /// Set when the user stops an Auto session; Auto Mode waits until the workloads end before re-arming.
     private var autoPaused = false
     private var closedLidChecklistAccepted = false
@@ -639,24 +639,41 @@ final class AppModel: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         isUpdating = true
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/bash")
-        process.arguments = ["-c", "curl -fsSL \(Self.site)install.sh | LIDRUN_APP=\"$0\" bash", Bundle.main.bundlePath]
-        process.terminationHandler = { [weak self] process in
-            let failed = process.terminationStatus != 0
-            Task { @MainActor in
-                self?.isUpdating = false
-                if failed { self?.errorMessage = "Update failed. Download the latest version from \(Self.site)" }
-            }
-        }
-        do { try process.run() } catch {
+        let arguments = ["/bin/bash", "-c", "curl -fsSL \(Self.site)install.sh | LIDRUN_APP=\"$0\" bash", Bundle.main.bundlePath]
+        guard let pid = Self.spawnDetached(arguments) else {
             isUpdating = false
-            errorMessage = error.localizedDescription
+            errorMessage = "Update failed. Download the latest version from \(Self.site)"
+            return
+        }
+        // Success replaces and relaunches this app, so only a failure ever gets back here.
+        Task { [weak self] in
+            let status = await Task.detached { () -> Int32 in
+                var status: Int32 = 0
+                waitpid(pid, &status, 0)
+                return status
+            }.value
+            self?.isUpdating = false
+            if status != 0 { self?.errorMessage = "Update failed. Download the latest version from \(Self.site)" }
         }
     }
 
+    /// Starts the updater in its own session. As a plain child it shared the app's process group, and launchd
+    /// kills that group when the app exits — the installer died right after stopping the app, before relaunching it.
+    private nonisolated static func spawnDetached(_ arguments: [String]) -> pid_t? {
+        var attributes: posix_spawnattr_t?
+        posix_spawnattr_init(&attributes)
+        defer { posix_spawnattr_destroy(&attributes) }
+        posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETSID))
+        let argv = arguments.map { strdup($0) } + [nil]
+        defer { argv.forEach { free($0) } }
+        var pid: pid_t = 0
+        return posix_spawn(&pid, arguments[0], nil, &attributes, argv, environ) == 0 ? pid : nil
+    }
+
     private nonisolated static func latestRelease() async -> (String, [String])? {
-        guard let (data, _) = try? await URLSession.shared.data(from: URL(string: site + "download.json")!),
+        // Bypass the HTTP cache: GitHub Pages allows 10 minutes, which hid new releases right after they shipped.
+        let request = URLRequest(url: URL(string: site + "download.json")!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
               let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let version = release["version"] as? String else { return nil }
         return (version, release["notes"] as? [String] ?? [])
