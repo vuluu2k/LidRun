@@ -34,8 +34,9 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegat
         popover.delegate = self
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 330, height: 510)
-        popover.contentViewController = NSHostingController(rootView: LidRunView(model: model))
+        let hosting = NSHostingController(rootView: LidRunView(model: model))
+        hosting.sizingOptions = .preferredContentSize
+        popover.contentViewController = hosting
 
         Publishers.CombineLatest3(model.$session, model.$closedLidEnabled, model.$chargingOnly)
             .sink { [weak self] state, closedLid, chargingOnly in
@@ -86,9 +87,11 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegat
     private func showWindow() {
         if fallbackWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: LidRunView(model: model)))
-            window.title = "LidRun"
-            window.styleMask = [.titled, .closable, .fullSizeContentView]
-            window.titlebarAppearsTransparent = true
+            window.title = "LidRun Personal"
+            // Content starts below a dark title bar; a full-size content view put the header under it and
+            // left twice the padding at the bottom.
+            window.styleMask = [.titled, .closable]
+            window.appearance = NSAppearance(named: .darkAqua)
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

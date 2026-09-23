@@ -26,7 +26,9 @@ struct LidRunView: View {
             quitRow
         }
         .padding(14)
-        .frame(width: 330, height: 510)
+        // Natural height: a fixed 510 clipped the top and bottom padding once rows were added.
+        .frame(width: 330)
+        .fixedSize(horizontal: false, vertical: true)
         .background(background)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.16)))
         .clipShape(RoundedRectangle(cornerRadius: 18))
