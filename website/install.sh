@@ -25,8 +25,16 @@ if [[ -d "$APP" ]] && ! ours "$APP"; then
 fi
 
 hdiutil attach -quiet -nobrowse -mountpoint "$TMP/mnt" "$TMP/LidRun.dmg"
-pkill -f "$APP/Contents/MacOS/LidRun" 2>/dev/null || true
-if [[ -d "$OLD" ]] && ours "$OLD"; then pkill -f "$OLD/Contents/MacOS/LidRun" 2>/dev/null || true; rm -rf "$OLD"; fi
+# Stop every running copy of this app, wherever it lives: if another copy stays up, `open` below just
+# activates it (same bundle id) and the freshly installed version never launches.
+for pid in $(pgrep -f '[.]app/Contents/MacOS/LidRun( |$)' || true); do
+  running="$(ps -o command= -p "$pid" | sed 's|/Contents/MacOS/LidRun.*$||')"
+  if ours "$running"; then kill "$pid" 2>/dev/null || true; fi
+done
+# Keep a single installed copy so the menu bar, Launch at Login and updates all point at the same app.
+for copy in "$OLD" "/Applications/LidRun.app" "/Applications/LidRun Personal.app" "$HOME/Applications/LidRun.app" "$HOME/Applications/LidRun Personal.app"; do
+  if [[ "$copy" != "$APP" && -d "$copy" ]] && ours "$copy"; then rm -rf "$copy"; fi
+done
 rm -rf "$APP"
 ditto "$(ls -d "$TMP"/mnt/*.app | head -1)" "$APP"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true

@@ -96,6 +96,16 @@ final class AppModel: ObservableObject {
     }
 
     var batteryText: String { snapshot?.batteryPercent.map { "\($0)%" } ?? "--" }
+    var batteryIcon: String {
+        if isCharging { return "battery.100percent.bolt" }
+        switch snapshot?.batteryPercent ?? 100 {
+        case ..<13: return "battery.0percent"
+        case ..<38: return "battery.25percent"
+        case ..<63: return "battery.50percent"
+        case ..<88: return "battery.75percent"
+        default: return "battery.100percent"
+        }
+    }
     var thermalText: String {
         guard let pressure = snapshot?.thermalPressure else { return "--" }
         let key: String

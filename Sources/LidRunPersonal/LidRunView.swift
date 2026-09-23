@@ -77,7 +77,7 @@ struct LidRunView: View {
                     .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
-            Label(model.isCharging ? t("charging") : t("battery"), systemImage: model.isCharging ? "bolt.fill" : "battery.75percent")
+            Label(model.isCharging ? t("charging") : t("battery"), systemImage: model.isCharging ? "bolt.fill" : model.batteryIcon)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(model.isCharging ? .green : .orange)
                 .padding(.horizontal, 8).padding(.vertical, 5)
@@ -88,11 +88,11 @@ struct LidRunView: View {
 
     private var metrics: some View {
         HStack(spacing: 5) {
-            metric("battery.75percent", model.batteryText)
-            metric("thermometer.medium", model.temperatureText, accent: temperatureColor)
-            metric("cpu", model.cpuText)
-            metric("fanblades", model.fanText)
-            metric("clock", model.activeDurationText)
+            metric(model.batteryIcon, model.batteryText).help(t("helpBattery"))
+            metric("thermometer.medium", model.temperatureText, accent: temperatureColor).help(t("helpTemperature"))
+            metric("cpu", model.cpuText).help(t("helpCPU"))
+            metric("fanblades", model.fanText).help(t("helpFan"))
+            metric("clock", model.activeDurationText).help(t("helpDuration"))
         }
     }
 
@@ -106,8 +106,13 @@ struct LidRunView: View {
     }
 
     private func metric(_ icon: String, _ value: String, accent: Color? = nil) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon).foregroundStyle(accent ?? Color.white.opacity(0.48))
+        HStack(alignment: .center, spacing: 4) {
+            // Symbols differ in width/height (battery vs thermometer); a fixed box keeps them level with the text.
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .semibold))
+                .imageScale(.medium)
+                .frame(width: 12, height: 12)
+                .foregroundStyle(accent ?? Color.white.opacity(0.48))
             Text(value).lineLimit(1).minimumScaleFactor(0.75)
         }
         .font(.system(size: 9, weight: .semibold)).foregroundStyle(accent ?? Color.white.opacity(0.76))
