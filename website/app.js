@@ -12,7 +12,7 @@ const copy = {
     f4Title:'Alerts & webhooks', f4Body:'macOS notifications plus webhooks for Discord, Slack, Teams, and custom JSON endpoints.',
     f5Title:'Global shortcuts', f5Body:'Control Auto Mode, Keep Awake, Closed-Lid, and Stop without leaving the keyboard.',
     f6Title:'Local reports', f6Body:'JSONL activity logs and weekly reports stay on your Mac. No analytics and no account.',
-    installEye:'INSTALL IN ONE MINUTE', installTitle:'One command. No Gatekeeper prompt.', gatekeeper:'Paste this into Terminal. It downloads the latest build, verifies its SHA-256, and installs it to Applications without a Gatekeeper warning.',
+    installEye:'INSTALL IN ONE MINUTE', installTitle:'One command. No Gatekeeper prompt.', copy:'Copy', copied:'Copied', gatekeeper:'Paste this into Terminal. It downloads the latest build, verifies its SHA-256, and installs it to Applications without a Gatekeeper warning.',
     step1Title:'Or download the DMG', step1Body:'Drag LidRun.app into the Applications folder.',
     step2Title:'Open LidRun once', step2Body:'macOS blocks it because the free build is not Apple-notarized. Click Done.',
     step3Title:'Open Anyway', step3Body:'Go to System Settings → Privacy &amp; Security and click Open Anyway. macOS remembers your choice.',
@@ -36,6 +36,13 @@ document.querySelector('#language').addEventListener('click', () => setLanguage(
 setLanguage(language);
 
 document.querySelector('#year').textContent = new Date().getFullYear();
+const copyButton = document.querySelector('#copy-command');
+copyButton.addEventListener('click', async () => {
+  const command = document.querySelector('#install-command');
+  try { await navigator.clipboard.writeText(command.textContent); } catch { getSelection().selectAllChildren(command); return; }
+  copyButton.textContent = language === 'en' ? copy.en.copied : 'Đã chép';
+  setTimeout(() => copyButton.textContent = language === 'en' ? copy.en.copy : original.copy, 1500);
+});
 document.querySelector('#install-command').textContent = `curl -fsSL ${new URL('install.sh', location.href).href.split('#')[0]} | bash`;
 
 const github = location.hostname.endsWith('.github.io') && location.pathname.split('/')[1];
