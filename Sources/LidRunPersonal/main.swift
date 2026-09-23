@@ -33,6 +33,9 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
         popover.animates = true
         popover.contentSize = NSSize(width: 330, height: 510)
         popover.contentViewController = NSHostingController(rootView: LidRunView(model: model))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.showPopover()
+        }
 
         Publishers.CombineLatest3(model.$session, model.$closedLidEnabled, model.$chargingOnly)
             .sink { [weak self] state, closedLid, chargingOnly in

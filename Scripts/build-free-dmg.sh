@@ -16,8 +16,8 @@ cat > "$STAGE/INSTALL.txt" <<'TXT'
 LidRun — free open-source build
 
 1. Drag LidRun.app to Applications.
-2. First launch: Control-click or right-click LidRun.app, choose Open, then Open again.
-3. macOS remembers this choice for later launches.
+2. In Applications, Control-click or right-click LidRun.app, choose Open, then Open again.
+3. LidRun opens from its moon icon in the menu bar; it has no Dock icon.
 
 This build is ad-hoc signed and not Apple-notarized, so a normal double-click may show an
 "unidentified developer" warning. The source code is available for inspection and local builds.
