@@ -21,21 +21,25 @@ public struct DevWorkload: Equatable, Sendable {
 }
 
 public enum WorkloadDetector {
-    private static let matchers: [(label: String, needles: [String])] = [
-        ("Claude Code", ["claude"]),
-        ("Cursor", ["cursor"]),
-        ("Docker", ["docker", "com.docker"]),
-        ("Ollama", ["ollama"]),
+    // Exact executable names (case-sensitive) plus command fragments. Substring matching on names caught
+    // unrelated processes: macOS's CursorUIViewService, the Claude desktop app, anything under a "claude" path.
+    // Idle daemons (Docker Desktop, `ollama serve`) are not workloads; active CLI runs and loaded models are.
+    private static let matchers: [(label: String, names: Set<String>, commands: [String])] = [
+        ("Claude Code", ["claude"], ["@anthropic-ai/claude-code", "claude-code/cli.js"]),
+        ("Cursor", ["Cursor"], []),
+        ("Docker", ["docker", "docker-compose"], []),
+        ("Ollama", [], ["ollama run"]),
     ]
 
     public static func detect(in processes: [RunningProcess], customNeedles: [String] = []) -> [DevWorkload] {
         processes.compactMap { process in
-            let haystack = "\(process.name) \(process.command)".lowercased()
+            let command = process.command.lowercased()
             if let match = matchers.first(where: { matcher in
-                matcher.needles.contains { haystack.contains($0) }
+                matcher.names.contains(process.name) || matcher.commands.contains { command.contains($0) }
             }) {
                 return DevWorkload(label: match.label, process: process)
             }
+            let haystack = "\(process.name) \(process.command)".lowercased()
             guard let custom = customNeedles.first(where: { !$0.isEmpty && haystack.contains($0.lowercased()) }) else { return nil }
             return DevWorkload(label: custom, process: process)
         }

@@ -43,7 +43,8 @@ final class AppModel: ObservableObject {
     private var watchdog: Timer?
     private var updateChecker: Timer?
     private static let site = "https://vuluu2k.github.io/LidRun/"
-    private var heatAlertSent = false
+    /// Set when the user stops an Auto session; Auto Mode waits until the workloads end before re-arming.
+    private var autoPaused = false
 
     init() {
         loadSettings()
@@ -107,7 +108,7 @@ final class AppModel: ObservableObject {
     }
     var protectedSessions: Int { weeklyEvents.filter { $0.type == .started }.count }
     var safetyStops: Int {
-        let reasons = Set([StopReason.lowBattery.rawValue, StopReason.thermalPressure.rawValue, StopReason.chargerDisconnected.rawValue])
+        let reasons = Set([StopReason.lowBattery.rawValue, StopReason.thermalPressure.rawValue, StopReason.chargerDisconnected.rawValue, StopReason.watchdog.rawValue])
         return weeklyEvents.filter { $0.type == .stopped && reasons.contains($0.reason) }.count
     }
     var protectedTimeText: String {
@@ -134,8 +135,6 @@ final class AppModel: ObservableObject {
         if session.isActive {
             stop()
         } else {
-            chargingOnly = false
-            saveSettings()
             start { try controller.startManual() }
         }
     }
@@ -143,13 +142,20 @@ final class AppModel: ObservableObject {
     func startTimer(minutes: Int) { start { try controller.startTimed(seconds: TimeInterval(minutes * 60)) } }
 
     func stop() {
+        if isAutoSession { autoPaused = true }
         watchdog?.invalidate()
         closedLidAssertion.release()
         closedLidEnabled = false
         controller.stop()
     }
 
-    func setAutoMode(_ enabled: Bool) { autoModeEnabled = enabled; saveSettings(); refresh() }
+    func setAutoMode(_ enabled: Bool) {
+        autoModeEnabled = enabled
+        autoPaused = false
+        saveSettings()
+        if !enabled, isAutoSession { controller.stop(reason: .manual) }
+        refresh()
+    }
     func setChargingOnly(_ enabled: Bool) { chargingOnly = enabled; saveSettings(); evaluateSafety() }
     func setThermalSafety(_ enabled: Bool) { thermalSafety = enabled; saveSettings(); evaluateSafety() }
     func setLowBattery(_ percent: Int?) { lowBatteryPercent = percent; saveSettings(); evaluateSafety() }
@@ -157,7 +163,15 @@ final class AppModel: ObservableObject {
     func setClosedLid(_ enabled: Bool) {
         do {
             if enabled {
-                if !session.isActive { try controller.startManual() }
+                snapshot = guardrailReader.snapshot()
+                // PreventSystemSleep is only honoured on AC power; on battery the lid would still sleep the Mac.
+                guard isCharging else {
+                    closedLidEnabled = false
+                    errorMessage = L10n.text("closedLidNeedsCharger", language)
+                    return
+                }
+                if !session.isActive { start { try controller.startManual() } }
+                guard controller.state.isActive else { closedLidEnabled = false; return }
                 try closedLidAssertion.acquire(reason: "Closed-Lid Mode")
             } else {
                 closedLidAssertion.release()
@@ -221,6 +235,7 @@ final class AppModel: ObservableObject {
         publish(title: "LidRun test", body: "Webhook test", event: "test", reportWebhookStatus: true)
     }
 
+    func setWebhookToken(_ value: String) { webhookToken = value; saveSettings() }
     func setLanguage(_ value: AppLanguage) { language = value; saveSettings() }
     func saveCustomRules(_ value: String) { customProcessRules = value; saveSettings(); refresh() }
 
@@ -238,7 +253,7 @@ final class AppModel: ObservableObject {
         snapshot = guardrailReader.snapshot()
         let custom = customProcessRules.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
         workloads = WorkloadDetector.detect(in: processList.processes(), customNeedles: custom)
-        recentEvents = (try? eventLog.recent(limit: 100)) ?? []
+        recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? []
         evaluateAutoMode()
         evaluateSafety()
     }
@@ -258,20 +273,7 @@ final class AppModel: ObservableObject {
             let metrics = reader.snapshot()
             await MainActor.run { [weak self] in
                 self?.systemMetrics = metrics
-                self?.evaluateHardwareTemperature()
             }
-        }
-    }
-
-    private func evaluateHardwareTemperature() {
-        guard thermalSafety, let temperature = systemMetrics.hotspotTemperatureCelsius else { return }
-        if temperature >= 100, session.isActive {
-            controller.stop(reason: .thermalPressure)
-        } else if temperature >= 90, !heatAlertSent {
-            heatAlertSent = true
-            publish(title: "LidRun thermal warning", body: "CPU hotspot is \(temperature)°C", event: "thermal_warning")
-        } else if temperature < 85 {
-            heatAlertSent = false
         }
     }
 
@@ -291,15 +293,24 @@ final class AppModel: ObservableObject {
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
             publish(title: "LidRun stopped", body: reason, event: "stopped")
         }
-        recentEvents = (try? eventLog.recent(limit: 100)) ?? []
+        recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? []
+    }
+
+    private static let reportEventLimit = 2000
+    private var isAutoSession: Bool { session.isActive && session.whyAwake.hasPrefix("Auto Mode:") }
+
+    private var guardrailBlock: StopReason? {
+        guard let snapshot, case .stop(let reason) = SafetyGovernor.evaluate(snapshot, policy: policy) else { return nil }
+        return reason
     }
 
     private func evaluateAutoMode() {
         guard autoModeEnabled else { return }
-        let autoSession = session.whyAwake.hasPrefix("Auto Mode:")
-        if session.isActive, autoSession, workloads.isEmpty {
+        if workloads.isEmpty { autoPaused = false }
+        if isAutoSession, workloads.isEmpty {
             controller.stop(reason: .workloadFinished)
-        } else if !session.isActive, !workloads.isEmpty {
+        } else if !session.isActive, !workloads.isEmpty, !autoPaused, guardrailBlock == nil {
+            // Without the guardrail check a blocked session restarted every refresh, then stopped again.
             let labels = Array(Set(workloads.map(\.label))).sorted()
             start { try controller.startAuto(workloads: labels) }
         }
@@ -314,9 +325,10 @@ final class AppModel: ObservableObject {
 
     private func scheduleWatchdog() {
         watchdog?.invalidate()
-        guard session.isActive, let minutes = watchdogMinutes else { return }
+        // Timed sessions already end on their own; the watchdog only caps open-ended ones.
+        guard session.isActive, session.nextRelease == "Manual stop", let minutes = watchdogMinutes else { return }
         watchdog = Timer.scheduledTimer(withTimeInterval: TimeInterval(minutes * 60), repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.controller.stop(reason: .timerExpired) }
+            Task { @MainActor in self?.controller.stop(reason: .watchdog) }
         }
     }
 
@@ -404,7 +416,12 @@ final class AppModel: ObservableObject {
     }
 
     private func start(_ action: () throws -> Void) {
-        do { try action(); evaluateSafety() } catch { errorMessage = String(describing: error) }
+        snapshot = guardrailReader.snapshot()
+        if let reason = guardrailBlock {
+            errorMessage = "\(L10n.text("blockedByGuardrail", language)): \(reason.rawValue)"
+            return
+        }
+        do { try action() } catch { errorMessage = String(describing: error) }
     }
 
     private func loadSettings() {
@@ -418,7 +435,8 @@ final class AppModel: ObservableObject {
         customProcessRules = defaults.string(forKey: "customProcessRules") ?? ""
         launchAtLogin = SMAppService.mainApp.status == .enabled
         language = AppLanguage(rawValue: defaults.string(forKey: "language") ?? "en") ?? .english
-        watchdogMinutes = defaults.object(forKey: "watchdogMinutes") as? Int ?? 480
+        watchdogMinutes = (defaults.object(forKey: "watchdogMinutes") as? Int ?? 480).nilIfZero
+        lowBatteryPercent = (defaults.object(forKey: "lowBatteryPercent") as? Int ?? 5).nilIfZero
     }
 
     private func saveSettings() {
@@ -431,10 +449,15 @@ final class AppModel: ObservableObject {
         defaults.set(webhookToken, forKey: "webhookToken")
         defaults.set(customProcessRules, forKey: "customProcessRules")
         defaults.set(language.rawValue, forKey: "language")
-        defaults.set(watchdogMinutes, forKey: "watchdogMinutes")
+        defaults.set(watchdogMinutes ?? 0, forKey: "watchdogMinutes")
+        defaults.set(lowBatteryPercent ?? 0, forKey: "lowBatteryPercent")
     }
 }
 
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
+}
+
+private extension Int {
+    var nilIfZero: Int? { self == 0 ? nil : self }
 }

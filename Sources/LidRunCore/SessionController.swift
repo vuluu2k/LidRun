@@ -8,6 +8,8 @@ public enum StopReason: String, Equatable, Sendable {
     case lowBattery = "low battery"
     case thermalPressure = "thermal pressure"
     case workloadFinished = "workload finished"
+    case watchdog = "watchdog limit"
+    case replaced = "replaced by new session"
 }
 
 public struct SessionState: Equatable, Sendable {
@@ -69,7 +71,11 @@ public final class SessionController: @unchecked Sendable {
     }
 
     private func start(reason: String, duration: TimeInterval?, now: Date) throws {
-        stop(reason: .manual, now: now)
+        // Switching sessions keeps the report accurate but must not fire onChange(inactive):
+        // that would disarm Closed-Lid and send a spurious "stopped" alert.
+        timer?.cancel()
+        timer = nil
+        if state.isActive { try? log.append(RunEvent(time: now, type: .stopped, reason: StopReason.replaced.rawValue)) }
         try assertion.acquire(reason: reason)
         state = SessionState(
             isActive: true,

@@ -22,6 +22,8 @@ enum L10n {
         "closedLid": [.english: "Closed-Lid Mode", .vietnamese: "Chế độ đóng nắp"],
         "cooling": [.english: "Cooling", .vietnamese: "Bảo vệ nhiệt"],
         "stop": [.english: "Stop", .vietnamese: "Dừng"],
+        "blockedByGuardrail": [.english: "Not started — safety guardrail", .vietnamese: "Chưa bật — bị chặn bởi giới hạn an toàn"],
+        "closedLidNeedsCharger": [.english: "Closed-Lid Mode needs the charger connected: macOS ignores it on battery and the Mac would sleep when the lid closes.", .vietnamese: "Chế độ đóng nắp cần cắm sạc: khi chạy pin macOS bỏ qua chế độ này và máy vẫn sleep khi gập nắp."],
         "update": [.english: "Update to", .vietnamese: "Cập nhật"],
         "updating": [.english: "Updating…", .vietnamese: "Đang cập nhật…"],
         "status": [.english: "Status", .vietnamese: "Trạng thái"],

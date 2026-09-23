@@ -48,6 +48,19 @@ public final class CommandRunner: @unchecked Sendable {
             throw error
         }
 
+        // Forward termination signals so killing apprun never orphans the child.
+        let pid = process.processIdentifier
+        let forwarders = [SIGINT, SIGTERM, SIGHUP].map { sig in
+            signal(sig, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+            source.setEventHandler { kill(pid, sig) }
+            source.resume()
+            return source
+        }
+        defer { forwarders.forEach { $0.cancel() } }
+
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
         var safetyStop: StopReason?
         while process.isRunning {
             if safetyStop == nil,
@@ -56,13 +69,15 @@ public final class CommandRunner: @unchecked Sendable {
                 assertion.release()
                 try? log.append(RunEvent(type: .stopped, reason: reason.rawValue))
             }
-            Thread.sleep(forTimeInterval: 1)
+            _ = exited.wait(timeout: .now() + 1)
         }
         process.waitUntilExit()
         assertion.release()
 
+        // Shell convention: a child killed by signal N exits 128 + N.
+        let exitCode = process.terminationReason == .uncaughtSignal ? 128 + process.terminationStatus : process.terminationStatus
         let duration = Date().timeIntervalSince(startedAt)
-        try? log.append(RunEvent(type: .stopped, reason: "command exit \(process.terminationStatus) after \(Int(duration))s"))
-        return CommandResult(exitCode: process.terminationStatus, duration: duration, safetyStop: safetyStop)
+        try? log.append(RunEvent(type: .stopped, reason: "command exit \(exitCode) after \(Int(duration))s"))
+        return CommandResult(exitCode: exitCode, duration: duration, safetyStop: safetyStop)
     }
 }

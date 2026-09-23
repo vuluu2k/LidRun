@@ -223,7 +223,7 @@ struct LidRunView: View {
             TextField(t("webhook"), text: $webhookDraft).textFieldStyle(.roundedBorder).controlSize(.small)
             HStack { Text(t("detectedPlatform")); Spacer(); Text(model.webhookPlatform(for: webhookDraft)) }
                 .font(.caption).foregroundStyle(.secondary)
-            SecureField(t("webhookToken"), text: $model.webhookToken).textFieldStyle(.roundedBorder).controlSize(.small)
+            SecureField(t("webhookToken"), text: Binding(get: { model.webhookToken }, set: { model.setWebhookToken($0) })).textFieldStyle(.roundedBorder).controlSize(.small)
             HStack {
                 Text(model.webhookStatus).font(.caption).foregroundStyle(.secondary)
                 Spacer()

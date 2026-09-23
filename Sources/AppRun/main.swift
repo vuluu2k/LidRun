@@ -21,7 +21,11 @@ if executable.contains("/") {
     try? shell.run()
     shell.waitUntilExit()
     resolvedExecutable = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-        .trimmingCharacters(in: .whitespacesAndNewlines) ?? executable
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+}
+guard FileManager.default.isExecutableFile(atPath: resolvedExecutable) else {
+    FileHandle.standardError.write(Data("apprun: command not found: \(executable)\n".utf8))
+    exit(127)
 }
 
 do {
