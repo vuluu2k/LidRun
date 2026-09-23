@@ -3,6 +3,8 @@ import Foundation
 public enum EventType: String, Codable, Sendable {
     case started
     case stopped
+    case armed
+    case disarmed
 }
 
 public struct RunEvent: Codable, Equatable, Sendable {

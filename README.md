@@ -19,7 +19,11 @@ swift run apprun -- /bin/sleep 30
 swift run apprun -- docker build .
 ```
 
-`apprun` holds the awake assertion until the command exits and returns the same exit code.
+`apprun` holds the awake assertion until the command exits and returns the same exit code. It uses the app's charging-only, low-battery and thermal settings, and posts a `command_finished` webhook when one is configured. Add `--sleep` to put the Mac to sleep when the command finishes:
+
+```bash
+apprun --sleep -- ./train.sh
+```
 
 ## Build a free DMG
 
@@ -62,4 +66,7 @@ swift test
 - Thermal guardrail: releases on serious/critical macOS thermal pressure.
 - Auto Mode detects Claude Code, Cursor, Docker, and Ollama via local process list.
 - Auto Mode starts when a known workload appears and releases when it ends.
+- Low battery puts the Mac to sleep instead of only releasing the assertion.
+- Optional extended Auto Mode: Python, Node, SSH/rsync, Xcode builds and transfers above ~1 MB/s.
+- Full Closed-Lid Mode (optional): Settings → Install asks for the admin password once and adds `/etc/sudoers.d/lidrun`, which allows only `pmset -a disablesleep 0|1`. The lid can then close on battery too. Sleep is re-enabled on every stop, guardrail release and app launch; Settings → Remove deletes the rule.
 - Local JSONL event log at `~/Library/Application Support/LidRunPersonal/events.jsonl`.

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import LidRunCore
 
@@ -37,4 +38,19 @@ import Testing
 
 @Test func systemProcessListCompletesAndReturnsProcesses() {
     #expect(!SystemProcessList().processes().isEmpty)
+}
+
+@Test func extendedDetectionIsOptIn() {
+    let processes = [
+        RunningProcess(name: "python3", command: "python3 train.py"),
+        RunningProcess(name: "rsync", command: "rsync -a src host:dst"),
+    ]
+    #expect(WorkloadDetector.detect(in: processes).isEmpty)
+    #expect(WorkloadDetector.detect(in: processes, extended: true).map(\.label) == ["Python", "SSH"])
+}
+
+@Test func networkActivityReportsRateAfterFirstSample() {
+    let network = NetworkActivity()
+    #expect(network.rate(now: Date(timeIntervalSince1970: 1)) == nil)
+    #expect((network.rate(now: Date(timeIntervalSince1970: 2)) ?? -1) >= 0)
 }

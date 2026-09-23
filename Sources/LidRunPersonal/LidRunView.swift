@@ -246,6 +246,17 @@ struct LidRunView: View {
             settingPicker(t("language"), selection: Binding(get: { model.language.rawValue }, set: { model.setLanguage(AppLanguage(rawValue: $0) ?? .english) }), values: [("en", "English"), ("vi", "Tiếng Việt")])
             settingPicker(t("lowBattery"), selection: Binding(get: { model.lowBatteryPercent ?? 0 }, set: { model.setLowBattery($0 == 0 ? nil : $0) }), values: [(0, "Off"), (5, "5%"), (10, "10%"), (15, "15%")])
             settingPicker(t("watchdog"), selection: Binding(get: { model.watchdogMinutes ?? 0 }, set: { model.setWatchdog(minutes: $0 == 0 ? nil : $0) }), values: [(0, "Off"), (60, "1h"), (240, "4h"), (480, "8h")])
+            toggleRow(t("extendedDetection"), "sparkle.magnifyingglass", .white, Binding(get: { model.extendedDetection }, set: { model.setExtendedDetection($0) }), "")
+            HStack {
+                Text(t("closedLidHelper")).font(.caption)
+                Spacer()
+                if model.closedLidHelperInstalled {
+                    Button(t("remove")) { model.removeClosedLidHelper() }.controlSize(.mini)
+                } else {
+                    Button(t("install")) { model.installClosedLidHelper() }.controlSize(.mini)
+                }
+            }
+            Text(t("closedLidHelperHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
             TextField(t("smartRules"), text: $customRulesDraft).textFieldStyle(.roundedBorder).controlSize(.small)
             Button(t("save")) { model.saveCustomRules(customRulesDraft) }.controlSize(.mini)
             Text(t("safetyNote")).font(.system(size: 9)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)

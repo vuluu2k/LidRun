@@ -22,6 +22,8 @@ final class AppModel: ObservableObject {
     @Published var webhookToken = ""
     @Published var customProcessRules = ""
     @Published var launchAtLogin = false
+    @Published private(set) var extendedDetection = false
+    @Published private(set) var closedLidHelperInstalled = SystemSleep.closedLidHelperInstalled
     @Published var language: AppLanguage = .english
     @Published var errorMessage: String?
     @Published private(set) var notificationStatus = "Not requested"
@@ -37,6 +39,9 @@ final class AppModel: ObservableObject {
     private let processList = SystemProcessList()
     private let metricsReader = SystemMetricsReader()
     private let eventLog = EventLog()
+    private let network = NetworkActivity()
+    /// True while this app has turned off system sleep via `pmset disablesleep`.
+    private var sleepDisabled = false
     private var monitor: Timer?
     private var ticker: Timer?
     private var metricsMonitor: Timer?
@@ -47,6 +52,8 @@ final class AppModel: ObservableObject {
     private var autoPaused = false
 
     init() {
+        // Recover from a crash that left `disablesleep 1` behind.
+        SystemSleep.setSleepDisabled(false)
         loadSettings()
         refreshNotificationStatus()
         controller.onChange = { [weak self] state in
@@ -144,8 +151,7 @@ final class AppModel: ObservableObject {
     func stop() {
         if isAutoSession { autoPaused = true }
         watchdog?.invalidate()
-        closedLidAssertion.release()
-        closedLidEnabled = false
+        releaseClosedLid()
         controller.stop()
     }
 
@@ -161,26 +167,54 @@ final class AppModel: ObservableObject {
     func setLowBattery(_ percent: Int?) { lowBatteryPercent = percent; saveSettings(); evaluateSafety() }
 
     func setClosedLid(_ enabled: Bool) {
+        guard enabled else { releaseClosedLid(); return }
+        snapshot = guardrailReader.snapshot()
+        // Without the helper only PreventSystemSleep is available: honoured on AC power, not on a closed lid on battery.
+        guard closedLidHelperInstalled || isCharging else {
+            errorMessage = L10n.text("closedLidNeedsCharger", language)
+            return
+        }
+        if !session.isActive { start { try controller.startManual() } }
+        guard controller.state.isActive else { return }
         do {
-            if enabled {
-                snapshot = guardrailReader.snapshot()
-                // PreventSystemSleep is only honoured on AC power; on battery the lid would still sleep the Mac.
-                guard isCharging else {
-                    closedLidEnabled = false
-                    errorMessage = L10n.text("closedLidNeedsCharger", language)
+            try closedLidAssertion.acquire(reason: "Closed-Lid Mode")
+            if closedLidHelperInstalled {
+                guard SystemSleep.setSleepDisabled(true) else {
+                    closedLidAssertion.release()
+                    errorMessage = L10n.text("closedLidHelperFailed", language)
                     return
                 }
-                if !session.isActive { start { try controller.startManual() } }
-                guard controller.state.isActive else { closedLidEnabled = false; return }
-                try closedLidAssertion.acquire(reason: "Closed-Lid Mode")
-            } else {
-                closedLidAssertion.release()
+                sleepDisabled = true
             }
-            closedLidEnabled = enabled
+            closedLidEnabled = true
+            try? eventLog.append(RunEvent(type: .armed, reason: sleepDisabled ? "Closed-Lid Mode (sleep disabled)" : "Closed-Lid Mode (AC only)"))
         } catch {
-            closedLidEnabled = false
             errorMessage = String(describing: error)
         }
+    }
+
+    func setExtendedDetection(_ enabled: Bool) { extendedDetection = enabled; saveSettings(); refresh() }
+
+    func installClosedLidHelper() { changeClosedLidHelper { SystemSleep.installClosedLidHelper() } }
+    func removeClosedLidHelper() {
+        releaseClosedLid()
+        changeClosedLidHelper { SystemSleep.removeClosedLidHelper() }
+    }
+
+    private func changeClosedLidHelper(_ action: @escaping @Sendable () -> Bool) {
+        Task { [weak self] in
+            // The admin prompt blocks until the user answers, so keep it off the main thread.
+            let installed = await Task.detached { _ = action(); return SystemSleep.closedLidHelperInstalled }.value
+            self?.closedLidHelperInstalled = installed
+        }
+    }
+
+    /// Restores normal sleep. Must run before any `sleepNow`, or `disablesleep` would ignore it.
+    private func releaseClosedLid() {
+        closedLidAssertion.release()
+        if sleepDisabled { SystemSleep.setSleepDisabled(false); sleepDisabled = false }
+        if closedLidEnabled { try? eventLog.append(RunEvent(type: .disarmed, reason: "Closed-Lid Mode")) }
+        closedLidEnabled = false
     }
 
     func setAlerts(_ enabled: Bool) {
@@ -252,7 +286,10 @@ final class AppModel: ObservableObject {
     func refresh() {
         snapshot = guardrailReader.snapshot()
         let custom = customProcessRules.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-        workloads = WorkloadDetector.detect(in: processList.processes(), customNeedles: custom)
+        workloads = WorkloadDetector.detect(in: processList.processes(), customNeedles: custom, extended: extendedDetection)
+        if extendedDetection, let rate = network.rate(), rate > 1_000_000 {  // ~1 MB/s; idle background traffic sits around 200 KB/s
+            workloads.append(DevWorkload(label: "Network transfer", process: RunningProcess(name: "network", command: "\(Int(rate / 1000)) KB/s")))
+        }
         recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? []
         evaluateAutoMode()
         evaluateSafety()
@@ -263,7 +300,7 @@ final class AppModel: ObservableObject {
         ticker?.invalidate()
         metricsMonitor?.invalidate()
         watchdog?.invalidate()
-        closedLidAssertion.release()
+        releaseClosedLid()
         controller.stop(reason: .appQuit)
     }
 
@@ -288,8 +325,7 @@ final class AppModel: ObservableObject {
             publish(title: "LidRun started", body: state.whyAwake, event: "started")
         } else {
             watchdog?.invalidate()
-            closedLidAssertion.release()
-            closedLidEnabled = false
+            releaseClosedLid()
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
             publish(title: "LidRun stopped", body: reason, event: "stopped")
         }
@@ -319,7 +355,11 @@ final class AppModel: ObservableObject {
     private func evaluateSafety() {
         guard session.isActive, let snapshot else { return }
         if case .stop(let reason) = SafetyGovernor.evaluate(snapshot, policy: policy) {
+            let lidMode = closedLidEnabled
+            releaseClosedLid()
             controller.stop(reason: reason)
+            // Releasing is not enough when the lid is shut or the battery is nearly empty: sleep now, as lidrun.com does.
+            if reason == .lowBattery || (lidMode && SystemSleep.isLidClosed) { SystemSleep.sleepNow() }
         }
     }
 
@@ -434,6 +474,7 @@ final class AppModel: ObservableObject {
         webhookToken = defaults.string(forKey: "webhookToken") ?? ""
         customProcessRules = defaults.string(forKey: "customProcessRules") ?? ""
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        extendedDetection = defaults.bool(forKey: "extendedDetection")
         language = AppLanguage(rawValue: defaults.string(forKey: "language") ?? "en") ?? .english
         watchdogMinutes = (defaults.object(forKey: "watchdogMinutes") as? Int ?? 480).nilIfZero
         lowBatteryPercent = (defaults.object(forKey: "lowBatteryPercent") as? Int ?? 5).nilIfZero
@@ -448,6 +489,7 @@ final class AppModel: ObservableObject {
         defaults.set(webhookURL, forKey: "webhookURL")
         defaults.set(webhookToken, forKey: "webhookToken")
         defaults.set(customProcessRules, forKey: "customProcessRules")
+        defaults.set(extendedDetection, forKey: "extendedDetection")
         defaults.set(language.rawValue, forKey: "language")
         defaults.set(watchdogMinutes ?? 0, forKey: "watchdogMinutes")
         defaults.set(lowBatteryPercent ?? 0, forKey: "lowBatteryPercent")
