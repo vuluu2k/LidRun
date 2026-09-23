@@ -22,6 +22,8 @@ enum L10n {
         "closedLid": [.english: "Closed-Lid Mode", .vietnamese: "Chế độ đóng nắp"],
         "cooling": [.english: "Cooling", .vietnamese: "Bảo vệ nhiệt"],
         "stop": [.english: "Stop", .vietnamese: "Dừng"],
+        "update": [.english: "Update to", .vietnamese: "Cập nhật"],
+        "updating": [.english: "Updating…", .vietnamese: "Đang cập nhật…"],
         "status": [.english: "Status", .vietnamese: "Trạng thái"],
         "protected": [.english: "Protected", .vietnamese: "Đang bảo vệ"],
         "idle": [.english: "Idle", .vietnamese: "Đang nghỉ"],

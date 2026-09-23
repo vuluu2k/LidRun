@@ -277,6 +277,10 @@ struct LidRunView: View {
             HStack(spacing: 9) {
                 Image(systemName: "power").font(.system(size: 12, weight: .medium)).frame(width: 18, height: 18, alignment: .center)
                 Text(t("quit")).frame(maxWidth: .infinity, alignment: .leading)
+                if let version = model.availableUpdate {
+                    Button(model.isUpdating ? t("updating") : "\(t("update")) v\(version)", action: model.installUpdate)
+                        .buttonStyle(.borderedProminent).tint(.indigo).controlSize(.small).disabled(model.isUpdating)
+                }
             }
             .font(.system(size: 12, weight: .semibold)).frame(height: 31)
         }.buttonStyle(.plain)

@@ -21,7 +21,7 @@ if [[ -d "$APP" && "$(defaults read "$APP/Contents/Info.plist" CFBundleIdentifie
 fi
 
 hdiutil attach -quiet -nobrowse -mountpoint "$TMP/mnt" "$TMP/LidRun.dmg"
-pkill -x LidRun 2>/dev/null || true
+pkill -f "$APP/Contents/MacOS/LidRun" 2>/dev/null || true
 rm -rf "$APP"
 ditto "$TMP/mnt/LidRun.app" "$APP"
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true

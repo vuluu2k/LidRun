@@ -27,6 +27,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var notificationStatus = "Not requested"
     @Published private(set) var webhookStatus = "Not configured"
     @Published private(set) var hotKeysReady = false
+    @Published private(set) var availableUpdate: String?
+    @Published private(set) var isUpdating = false
     @Published private var now = Date()
 
     private let controller = SessionController()
@@ -39,6 +41,8 @@ final class AppModel: ObservableObject {
     private var ticker: Timer?
     private var metricsMonitor: Timer?
     private var watchdog: Timer?
+    private var updateChecker: Timer?
+    private static let site = "https://vuluu2k.github.io/LidRun/"
     private var heatAlertSent = false
 
     init() {
@@ -53,6 +57,10 @@ final class AppModel: ObservableObject {
         }
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.now = Date() }
+        }
+        checkForUpdate()
+        updateChecker = Timer.scheduledTimer(withTimeInterval: 86_400, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkForUpdate() }
         }
         updateSystemMetrics()
         metricsMonitor = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -310,6 +318,41 @@ final class AppModel: ObservableObject {
         watchdog = Timer.scheduledTimer(withTimeInterval: TimeInterval(minutes * 60), repeats: false) { [weak self] _ in
             Task { @MainActor in self?.controller.stop(reason: .timerExpired) }
         }
+    }
+
+    func checkForUpdate() {
+        // Dev builds from .build are replaced by rebuilding, not by the release DMG.
+        guard !Bundle.main.bundlePath.contains("/.build/"),
+              let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else { return }
+        Task { [weak self] in
+            guard let latest = await Self.latestVersion() else { return }
+            self?.availableUpdate = latest.compare(current, options: .numeric) == .orderedDescending ? latest : nil
+        }
+    }
+
+    /// Runs the website install script against this bundle; it replaces and relaunches the app.
+    func installUpdate() {
+        isUpdating = true
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/bash")
+        process.arguments = ["-c", "curl -fsSL \(Self.site)install.sh | LIDRUN_APP=\"$0\" bash", Bundle.main.bundlePath]
+        process.terminationHandler = { [weak self] process in
+            let failed = process.terminationStatus != 0
+            Task { @MainActor in
+                self?.isUpdating = false
+                if failed { self?.errorMessage = "Update failed. Download the latest version from \(Self.site)" }
+            }
+        }
+        do { try process.run() } catch {
+            isUpdating = false
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private nonisolated static func latestVersion() async -> String? {
+        guard let (data, _) = try? await URLSession.shared.data(from: URL(string: site + "download.json")!),
+              let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return release["version"] as? String
     }
 
     private nonisolated static func notificationAuthorizationStatus() async -> UNAuthorizationStatus {
