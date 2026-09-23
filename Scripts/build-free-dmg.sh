@@ -26,7 +26,6 @@ This build is ad-hoc signed and not Apple-notarized, so a normal double-click ma
 TXT
 
 hdiutil create -volname "LidRun" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
-codesign --force --sign - "$DMG"
 shasum -a 256 "$DMG" > "$DMG.sha256"
 rm -rf "$STAGE"
 
