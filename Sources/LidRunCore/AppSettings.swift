@@ -16,6 +16,12 @@ public struct AppSettings: Equatable, Sendable {
     public var customProcessRules = ""
     public var language = "en"
     public var closedLidChecklistAccepted = false
+    /// ntfy.sh topic (or full https URL of a self-hosted topic) for phone push notifications.
+    public var ntfyTopic = ""
+    public var scheduleEnabled = false
+    public var scheduleStartHour = 1
+    public var scheduleEndHour = 7
+    public var sleepWhenWatchEnds = false
 
     public init() {}
 
@@ -34,6 +40,11 @@ public struct AppSettings: Equatable, Sendable {
         customProcessRules = defaults.string(forKey: "customProcessRules") ?? ""
         language = defaults.string(forKey: "language") ?? fallback.language
         closedLidChecklistAccepted = defaults.bool(forKey: "closedLidChecklistAccepted")
+        ntfyTopic = defaults.string(forKey: "ntfyTopic") ?? ""
+        scheduleEnabled = defaults.bool(forKey: "scheduleEnabled")
+        scheduleStartHour = defaults.object(forKey: "scheduleStartHour") as? Int ?? fallback.scheduleStartHour
+        scheduleEndHour = defaults.object(forKey: "scheduleEndHour") as? Int ?? fallback.scheduleEndHour
+        sleepWhenWatchEnds = defaults.bool(forKey: "sleepWhenWatchEnds")
     }
 
     public func save(to defaults: UserDefaults) {
@@ -49,6 +60,11 @@ public struct AppSettings: Equatable, Sendable {
         defaults.set(customProcessRules, forKey: "customProcessRules")
         defaults.set(language, forKey: "language")
         defaults.set(closedLidChecklistAccepted, forKey: "closedLidChecklistAccepted")
+        defaults.set(ntfyTopic, forKey: "ntfyTopic")
+        defaults.set(scheduleEnabled, forKey: "scheduleEnabled")
+        defaults.set(scheduleStartHour, forKey: "scheduleStartHour")
+        defaults.set(scheduleEndHour, forKey: "scheduleEndHour")
+        defaults.set(sleepWhenWatchEnds, forKey: "sleepWhenWatchEnds")
     }
 
     public var guardrailPolicy: GuardrailPolicy {
@@ -75,5 +91,34 @@ public enum AutoMode {
         if isAutoSession, workloads.isEmpty { return .stop }
         if !sessionActive, !workloads.isEmpty, !paused, !blocked { return .start(Array(Set(workloads)).sorted()) }
         return .none
+    }
+}
+
+/// Daily keep-awake window in local hours, e.g. 1→7 or overnight 23→7.
+public enum Schedule {
+    /// The end of the window containing `now`, or nil when `now` is outside it. start == end means off.
+    public static func activeUntil(now: Date, startHour: Int, endHour: Int, calendar: Calendar = .current) -> Date? {
+        guard startHour != endHour else { return nil }
+        let hour = calendar.component(.hour, from: now)
+        let inside = startHour < endHour ? (startHour..<endHour).contains(hour) : (hour >= startHour || hour < endHour)
+        guard inside else { return nil }
+        let today = calendar.date(bySettingHour: endHour, minute: 0, second: 0, of: now)!
+        return today > now ? today : calendar.date(byAdding: .day, value: 1, to: today)
+    }
+}
+
+/// Phone push via ntfy.sh (free, no account): the user subscribes to the same topic in the ntfy app.
+public enum Ntfy {
+    public static func request(topic: String, title: String, message: String) -> URLRequest? {
+        let trimmed = topic.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let url = URL(string: trimmed.hasPrefix("http") ? trimmed : "https://ntfy.sh/\(trimmed)") else { return nil }
+        var request = URLRequest(url: url, timeoutInterval: 10)
+        request.httpMethod = "POST"
+        // Headers are ASCII-only; ntfy decodes RFC 2047 so Vietnamese titles survive.
+        request.setValue("=?UTF-8?B?\(Data(title.utf8).base64EncodedString())?=", forHTTPHeaderField: "Title")
+        request.setValue("laptop", forHTTPHeaderField: "Tags")
+        request.httpBody = Data(message.utf8)
+        return request
     }
 }

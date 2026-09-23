@@ -41,3 +41,23 @@ private func freshDefaults() -> UserDefaults {
     #expect(decide(active: true, auto: false, workloads: []) == .none)
     #expect(AutoMode.decide(enabled: false, sessionActive: false, isAutoSession: false, workloads: ["Docker"], paused: false, blocked: false) == .none)
 }
+
+@Test func scheduleHandlesDaytimeAndOvernightWindows() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "UTC")!
+    func at(_ hour: Int, day: Int = 1) -> Date { calendar.date(from: DateComponents(year: 2026, month: 1, day: day, hour: hour, minute: 30))! }
+    func end(_ hour: Int, day: Int = 1) -> Date { calendar.date(from: DateComponents(year: 2026, month: 1, day: day, hour: hour))! }
+
+    #expect(Schedule.activeUntil(now: at(3), startHour: 1, endHour: 7, calendar: calendar) == end(7))
+    #expect(Schedule.activeUntil(now: at(8), startHour: 1, endHour: 7, calendar: calendar) == nil)
+    #expect(Schedule.activeUntil(now: at(23), startHour: 23, endHour: 7, calendar: calendar) == end(7, day: 2))
+    #expect(Schedule.activeUntil(now: at(2), startHour: 23, endHour: 7, calendar: calendar) == end(7))
+    #expect(Schedule.activeUntil(now: at(12), startHour: 23, endHour: 7, calendar: calendar) == nil)
+    #expect(Schedule.activeUntil(now: at(5), startHour: 5, endHour: 5, calendar: calendar) == nil)
+}
+
+@Test func ntfyAcceptsTopicOrURL() {
+    #expect(Ntfy.request(topic: " my-topic ", title: "t", message: "m")?.url?.absoluteString == "https://ntfy.sh/my-topic")
+    #expect(Ntfy.request(topic: "https://ntfy.example.com/x", title: "t", message: "m")?.url?.absoluteString == "https://ntfy.example.com/x")
+    #expect(Ntfy.request(topic: "", title: "t", message: "m") == nil)
+}

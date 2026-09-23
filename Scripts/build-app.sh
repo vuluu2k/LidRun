@@ -38,6 +38,11 @@ cat > "$CONTENTS/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>${BUILD_NUMBER:-1}</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleURLTypes</key>
+  <array><dict>
+    <key>CFBundleURLName</key><string>io.opensource.lidrun</string>
+    <key>CFBundleURLSchemes</key><array><string>lidrun</string></array>
+  </dict></array>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSUserNotificationAlertStyle</key><string>alert</string>
 </dict>

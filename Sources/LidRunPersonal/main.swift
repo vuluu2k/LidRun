@@ -11,6 +11,7 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegat
     private var fallbackWindow: NSWindow?
     private var hotKeys: GlobalHotKeys?
     private var subscriptions = Set<AnyCancellable>()
+    private var countdown: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
@@ -42,6 +43,7 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegat
             .sink { [weak self] state, closedLid, chargingOnly in
                 let symbol = closedLid ? "laptopcomputer.and.arrow.down" : state.isActive ? "sun.max.fill" : chargingOnly ? "bolt.fill" : "moon"
                 self?.statusItem?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "LidRun")
+                self?.updateCountdown(releaseAt: state.releaseAt)
             }
             .store(in: &subscriptions)
 
@@ -71,6 +73,35 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegat
             NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
+    }
+
+    // lidrun://start?minutes=60 etc. — for Shortcuts, Raycast, Alfred, scripts (`open lidrun://stop`).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        urls.forEach(model.handle)
+    }
+
+    /// Timed sessions show the time left next to the menu bar icon ("1:12"); refreshed twice a minute.
+    private func updateCountdown(releaseAt: Date?) {
+        countdown?.invalidate()
+        countdown = nil
+        guard let item = statusItem, let button = item.button else { return }
+        guard let releaseAt else {
+            item.length = NSStatusItem.squareLength
+            button.title = ""
+            button.imagePosition = .imageOnly
+            return
+        }
+        let render = {
+            let minutes = max(0, Int(releaseAt.timeIntervalSinceNow / 60))
+            button.title = " " + String(format: "%d:%02d", minutes / 60, minutes % 60)
+        }
+        item.length = NSStatusItem.variableLength
+        button.imagePosition = .imageLeading
+        button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        render()
+        countdown = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+            Task { @MainActor in render() }
+        }
     }
 
     func popoverDidShow(_ notification: Notification) { model.setPanelVisible(true) }

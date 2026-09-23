@@ -31,6 +31,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var webhookStatus = "Not configured"
     @Published private(set) var hotKeysReady = false
     @Published private(set) var availableUpdate: String?
+    @Published private(set) var updateNotes: [String] = []
+    @Published private(set) var watchedProcess: WatchCandidate?
+    @Published var ntfyTopic = ""
+    @Published private(set) var scheduleEnabled = false
+    @Published private(set) var scheduleStartHour = 1
+    @Published private(set) var scheduleEndHour = 7
+    @Published private(set) var sleepWhenWatchEnds = false
     @Published private(set) var isUpdating = false
     @Published private var now = Date()
 
@@ -55,6 +62,9 @@ final class AppModel: ObservableObject {
     private var heatWarned = false
     private var panelVisible = false
     private var crashGuard: Process?
+    private var watchSource: DispatchSourceProcess?
+    /// Set when the user stops a scheduled session; cleared once the window ends.
+    private var schedulePaused = false
     private var isQuitting = false
     private var bundledAppRun: String { Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/apprun").path }
 
@@ -131,10 +141,14 @@ final class AppModel: ObservableObject {
     }
     var isCharging: Bool { snapshot?.isCharging == true }
 
-    var whyAwakeText: String {
-        let why = session.whyAwake
-        if why.hasPrefix("Auto Mode: ") { return L10n.text("autoMode", language) + ": " + why.dropFirst("Auto Mode: ".count) }
-        return L10n.text(why, language)
+    var whyAwakeText: String { describe(session.whyAwake) }
+
+    /// Localized text for a logged start or stop reason ("Auto Mode: Docker", "process finished", ...).
+    func describe(_ reason: String) -> String {
+        for (prefix, key) in [("Auto Mode: ", "autoMode"), ("Watching: ", "watching")] where reason.hasPrefix(prefix) {
+            return L10n.text(key, language) + ": " + reason.dropFirst(prefix.count)
+        }
+        return L10n.text(reason, language)
     }
 
     /// "until 15:30 · 1h 12m left" for timers, the watchdog cap for open-ended sessions.
@@ -218,6 +232,7 @@ final class AppModel: ObservableObject {
 
     func stop() {
         if isAutoSession { autoPaused = true }
+        if session.whyAwake == "Schedule" { schedulePaused = true }
         watchdog?.invalidate()
         releaseClosedLid()
         controller.stop()
@@ -287,6 +302,104 @@ final class AppModel: ObservableObject {
                 return SystemSleep.commandLineToolInstalled(bundled: bundled)
             }.value
             self?.commandLineToolInstalled = installed
+        }
+    }
+
+    // MARK: Watch a running process
+
+    func watchCandidates() -> [WatchCandidate] { processList.userProcesses() }
+
+    /// Keeps the Mac awake until `process` exits (kernel exit event, no polling), then alerts and optionally sleeps.
+    func watch(_ process: WatchCandidate) {
+        guard kill(process.id, 0) == 0 else { errorMessage = L10n.text("processGone", language); return }
+        start { try controller.startWatching("\(process.name) (\(process.id))") }
+        guard controller.state.isActive else { return }
+        let source = DispatchSource.makeProcessSource(identifier: process.id, eventMask: .exit, queue: .main)
+        source.setEventHandler { [weak self] in
+            Task { @MainActor in self?.watchedProcessExited() }
+        }
+        source.resume()
+        watchSource = source
+        watchedProcess = process
+    }
+
+    private static func processName(_ pid: Int32) -> String? {
+        var buffer = [CChar](repeating: 0, count: 256)
+        guard proc_name(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
+        return String(cString: buffer)
+    }
+
+    func setSleepWhenWatchEnds(_ enabled: Bool) { sleepWhenWatchEnds = enabled; saveSettings() }
+
+    private func watchedProcessExited() {
+        guard watchedProcess != nil else { return }
+        releaseClosedLid()
+        controller.stop(reason: .processFinished)
+        if sleepWhenWatchEnds { SystemSleep.sleepNow() }
+    }
+
+    private func stopWatching() {
+        watchSource?.cancel()
+        watchSource = nil
+        watchedProcess = nil
+    }
+
+    // MARK: Schedule
+
+    func setSchedule(enabled: Bool? = nil, startHour: Int? = nil, endHour: Int? = nil) {
+        if let enabled { scheduleEnabled = enabled }
+        if let startHour { scheduleStartHour = startHour }
+        if let endHour { scheduleEndHour = endHour }
+        schedulePaused = false
+        saveSettings()
+        if session.whyAwake == "Schedule", Schedule.activeUntil(now: Date(), startHour: scheduleStartHour, endHour: scheduleEndHour) == nil || !scheduleEnabled {
+            controller.stop(reason: .manual)
+        }
+        evaluateSchedule()
+    }
+
+    private func evaluateSchedule() {
+        guard scheduleEnabled,
+              let end = Schedule.activeUntil(now: Date(), startHour: scheduleStartHour, endHour: scheduleEndHour) else {
+            schedulePaused = false
+            return
+        }
+        // Never replaces another session; the scheduled one ends on its own timer at `end`.
+        guard !session.isActive, !controller.state.isActive, !schedulePaused, guardrailBlock == nil else { return }
+        start { try controller.startScheduled(until: end) }
+    }
+
+    // MARK: Phone push (ntfy)
+
+    func saveNtfyTopic(_ value: String) { ntfyTopic = value.trimmingCharacters(in: .whitespacesAndNewlines); saveSettings() }
+
+    func sendTestPush() {
+        saveSettings()
+        publish(title: "LidRun test", body: L10n.text("pushWorks", language), event: "test")
+    }
+
+    /// A random, hard-to-guess topic: ntfy topics are public to anyone who knows the name.
+    static func suggestedTopic() -> String { "lidrun-" + UUID().uuidString.prefix(12).lowercased() }
+
+    // MARK: URL scheme — lidrun://start?minutes=60, stop, toggle, auto?on=1, closedlid?on=0, watch?pid=123
+
+    func handle(_ url: URL) {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(_ name: String) -> String? { items.first { $0.name == name }?.value }
+        let on = value("on").map { $0 == "1" || $0 == "true" }
+        switch url.host?.lowercased() {
+        case "start":
+            if let minutes = value("minutes").flatMap(Int.init), minutes > 0 { startTimer(minutes: minutes) }
+            else if !session.isActive { start { try controller.startManual() } }
+        case "stop": stop()
+        case "toggle": toggleKeepAwake()
+        case "auto": setAutoMode(on ?? !autoModeEnabled)
+        case "closedlid": setClosedLid(on ?? !closedLidEnabled)
+        case "watch":
+            if let pid = value("pid").flatMap(Int32.init) {
+                watch(WatchCandidate(id: pid, name: Self.processName(pid) ?? "pid \(pid)", cpu: 0))
+            }
+        default: errorMessage = "Unknown LidRun URL: \(url.absoluteString)"
         }
     }
 
@@ -404,6 +517,7 @@ final class AppModel: ObservableObject {
         }
         if panelVisible { recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? [] }
         evaluateAutoMode()
+        evaluateSchedule()
         evaluateSafety()
     }
 
@@ -417,7 +531,7 @@ final class AppModel: ObservableObject {
         let wasActive = controller.state.isActive
         releaseClosedLid()
         controller.stop(reason: .appQuit)
-        guard wasActive, let delivery = publish(title: "LidRun stopped", body: StopReason.appQuit.rawValue, event: "stopped") else { return }
+        guard wasActive, let delivery = publish(title: L10n.text("notifStopped", language), body: L10n.text(StopReason.appQuit.rawValue, language), event: "stopped") else { return }
         let timeout = Task { try? await Task.sleep(for: .seconds(3)); delivery.cancel() }
         await delivery.value
         timeout.cancel()
@@ -440,12 +554,13 @@ final class AppModel: ObservableObject {
         if isQuitting { return }
         if state.isActive {
             scheduleWatchdog()
-            publish(title: "LidRun started", body: state.whyAwake, event: "started")
+            publish(title: L10n.text("notifStarted", language), body: whyAwakeText, event: "started")
         } else {
             watchdog?.invalidate()
             releaseClosedLid()
+            stopWatching()
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
-            publish(title: "LidRun stopped", body: reason, event: "stopped")
+            publish(title: L10n.text("notifStopped", language), body: L10n.text(reason, language), event: "stopped")
         }
         if panelVisible { recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? [] }
     }
@@ -506,13 +621,23 @@ final class AppModel: ObservableObject {
         guard !Bundle.main.bundlePath.contains("/.build/"),
               let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else { return }
         Task { [weak self] in
-            guard let latest = await Self.latestVersion() else { return }
-            self?.availableUpdate = latest.compare(current, options: .numeric) == .orderedDescending ? latest : nil
+            guard let (latest, notes) = await Self.latestRelease() else { return }
+            let newer = latest.compare(current, options: .numeric) == .orderedDescending
+            self?.availableUpdate = newer ? latest : nil
+            self?.updateNotes = newer ? notes : []
         }
     }
 
     /// Runs the website install script against this bundle; it replaces and relaunches the app.
     func installUpdate() {
+        // Show what's new first (notes come from the release's commits, written by CI into download.json).
+        let alert = NSAlert()
+        alert.messageText = "\(L10n.text("update", language)) v\(availableUpdate ?? "")"
+        alert.informativeText = updateNotes.isEmpty ? L10n.text("updateNoNotes", language) : updateNotes.map { "• \($0)" }.joined(separator: "\n")
+        alert.addButton(withTitle: L10n.text("install", language))
+        alert.addButton(withTitle: L10n.text("cancel", language))
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
         isUpdating = true
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
@@ -530,10 +655,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private nonisolated static func latestVersion() async -> String? {
+    private nonisolated static func latestRelease() async -> (String, [String])? {
         guard let (data, _) = try? await URLSession.shared.data(from: URL(string: site + "download.json")!),
-              let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        return release["version"] as? String
+              let release = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let version = release["version"] as? String else { return nil }
+        return (version, release["notes"] as? [String] ?? [])
     }
 
     private nonisolated static func notificationAuthorizationStatus() async -> UNAuthorizationStatus {
@@ -558,14 +684,19 @@ final class AppModel: ObservableObject {
             content.body = body
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
-        guard let url = URL(string: webhookURL), !webhookURL.isEmpty else { return nil }
+        // Phone pushes are for outcomes (finished, safety stop, heat), not every start.
+        let push = event == "started" ? nil : Ntfy.request(topic: ntfyTopic, title: title, message: body).map { request in
+            Task { _ = try? await URLSession.shared.data(for: request) }
+        }
+        guard let url = URL(string: webhookURL), !webhookURL.isEmpty else { return push }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if !webhookToken.isEmpty { request.setValue("Bearer \(webhookToken)", forHTTPHeaderField: "Authorization") }
         let platform = WebhookPlatform.detect(url: url)
         request.httpBody = try? platform.body(event: event, reason: body)
-        return sendWebhook(request, reportStatus: reportWebhookStatus)
+        let hook = sendWebhook(request, reportStatus: reportWebhookStatus)
+        return Task { await push?.value; await hook.value }
     }
 
     private func sendWebhook(_ request: URLRequest, reportStatus: Bool) -> Task<Void, Never> {
@@ -608,6 +739,11 @@ final class AppModel: ObservableObject {
         customProcessRules = settings.customProcessRules
         language = AppLanguage(rawValue: settings.language) ?? .english
         closedLidChecklistAccepted = settings.closedLidChecklistAccepted
+        ntfyTopic = settings.ntfyTopic
+        scheduleEnabled = settings.scheduleEnabled
+        scheduleStartHour = settings.scheduleStartHour
+        scheduleEndHour = settings.scheduleEndHour
+        sleepWhenWatchEnds = settings.sleepWhenWatchEnds
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
@@ -625,6 +761,11 @@ final class AppModel: ObservableObject {
         settings.customProcessRules = customProcessRules
         settings.language = language.rawValue
         settings.closedLidChecklistAccepted = closedLidChecklistAccepted
+        settings.ntfyTopic = ntfyTopic
+        settings.scheduleEnabled = scheduleEnabled
+        settings.scheduleStartHour = scheduleStartHour
+        settings.scheduleEndHour = scheduleEndHour
+        settings.sleepWhenWatchEnds = sleepWhenWatchEnds
         return settings
     }
 

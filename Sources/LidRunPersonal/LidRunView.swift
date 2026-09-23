@@ -1,4 +1,5 @@
 import AppKit
+import LidRunCore
 import SwiftUI
 
 @MainActor
@@ -7,6 +8,10 @@ struct LidRunView: View {
     @State private var showReport = false
     @State private var showAlerts = false
     @State private var showSettings = false
+    @State private var showWatch = false
+    @State private var watchQuery = ""
+    @State private var candidates: [WatchCandidate] = []
+    @State private var ntfyDraft = ""
     @State private var webhookDraft = ""
     @State private var customRulesDraft = ""
 
@@ -36,6 +41,7 @@ struct LidRunView: View {
         .onAppear {
             webhookDraft = model.webhookURL
             customRulesDraft = model.customProcessRules
+            ntfyDraft = model.ntfyTopic
             model.refresh()
         }
         .alert("LidRun", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
@@ -44,6 +50,7 @@ struct LidRunView: View {
         .sheet(isPresented: $showReport) { detailSheet(t("tasksReports"), report) }
         .sheet(isPresented: $showAlerts) { detailSheet(t("notifications"), alerts) }
         .sheet(isPresented: $showSettings) { detailSheet(t("settings"), settings) }
+        .sheet(isPresented: $showWatch) { detailSheet(t("watchProcess"), watchList) }
     }
 
     private var modeIcon: String {
@@ -172,6 +179,10 @@ struct LidRunView: View {
     private var navigation: some View {
         VStack(spacing: 0) {
             navRow(t("status"), "gauge.with.dots.needle.33percent", model.session.isActive ? t("protected") : t("idle")) {}
+            navRow(t("watchProcess"), "scope", model.watchedProcess?.name ?? "›") {
+                candidates = model.watchCandidates()
+                showWatch = true
+            }
             navRow(t("tasksReports"), "list.bullet.clipboard", "›") { showReport = true }
             navRow(t("notifications"), "bell", model.alertsEnabled ? t("On") : "›") { showAlerts = true }
         }
@@ -198,9 +209,10 @@ struct LidRunView: View {
             HStack(alignment: .top) { stat(t("protectedTime"), model.protectedTimeText); stat(t("sessions"), "\(model.protectedSessions)"); stat(t("safetyStops"), "\(model.safetyStops)") }
             ForEach(model.recentSessions) { run in
                 HStack(spacing: 6) {
-                    Text(run.id.formatted(date: .abbreviated, time: .shortened)).frame(width: 92, alignment: .leading)
+                    Text(run.id.formatted(.dateTime.day().month(.defaultDigits).hour().minute())).frame(width: 62, alignment: .leading)
                     Text(duration(run.duration)).frame(width: 40, alignment: .leading)
-                    Text(run.reason + (run.stopReason.map { " → \($0)" } ?? " · \(t("running"))")).lineLimit(1)
+                    Text(model.describe(run.reason) + (run.stopReason.map { " → \(model.describe($0))" } ?? " · \(t("running"))")).lineLimit(1)
+                        .help(model.describe(run.reason) + (run.stopReason.map { " → \(model.describe($0))" } ?? ""))
                     Spacer(minLength: 0)
                 }
                 .font(.system(size: 9)).foregroundStyle(.secondary)
@@ -216,6 +228,36 @@ struct LidRunView: View {
     private func duration(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds) / 60
         return minutes >= 60 ? "\(minutes / 60)h\(minutes % 60)m" : "\(minutes)m"
+    }
+
+    private var watchList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(t("watchHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
+            if let watched = model.watchedProcess {
+                HStack {
+                    Label("\(watched.name) (\(watched.id))", systemImage: "scope").font(.caption.bold())
+                    Spacer()
+                    Button(t("stop")) { model.stop() }.controlSize(.small)
+                }
+            }
+            toggleRow(t("sleepWhenDone"), "moon.zzz", .white, Binding(get: { model.sleepWhenWatchEnds }, set: { model.setSleepWhenWatchEnds($0) }), "")
+            TextField(t("search"), text: $watchQuery).textFieldStyle(.roundedBorder).controlSize(.small)
+            ForEach(candidates.filter { watchQuery.isEmpty || $0.name.localizedCaseInsensitiveContains(watchQuery) || String($0.id) == watchQuery }) { process in
+                Button {
+                    model.watch(process)
+                    showWatch = false
+                } label: {
+                    HStack {
+                        Text(process.name).lineLimit(1)
+                        Spacer()
+                        Text(String(format: "%.0f%% · %d", process.cpu, process.id)).foregroundStyle(.secondary)
+                    }
+                    .font(.system(size: 11)).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func stat(_ title: String, _ value: String) -> some View {
@@ -235,6 +277,17 @@ struct LidRunView: View {
                 } else {
                     Button(t("testNotification")) { model.sendTestNotification() }.controlSize(.small)
                 }
+            }
+            Divider()
+            Text(t("ntfyHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
+            HStack {
+                TextField(t("ntfyTopic"), text: $ntfyDraft).textFieldStyle(.roundedBorder).controlSize(.small)
+                if ntfyDraft.isEmpty { Button(t("generate")) { ntfyDraft = AppModel.suggestedTopic() }.controlSize(.small) }
+            }
+            HStack {
+                if !ntfyDraft.isEmpty { Text("ntfy.sh/\(ntfyDraft)").font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                Spacer()
+                Button(t("sendTestPush")) { model.saveNtfyTopic(ntfyDraft); model.sendTestPush() }.controlSize(.small).disabled(ntfyDraft.isEmpty)
             }
             Divider()
             TextField(t("webhook"), text: $webhookDraft).textFieldStyle(.roundedBorder).controlSize(.small)
@@ -272,6 +325,18 @@ struct LidRunView: View {
                     Button(t("install")) { model.installCommandLineTool() }.controlSize(.mini)
                 }
             }
+            toggleRow(t("schedule"), "calendar.badge.clock", .white, Binding(get: { model.scheduleEnabled }, set: { model.setSchedule(enabled: $0) }), "")
+            if model.scheduleEnabled {
+                HStack {
+                    Picker(t("from"), selection: Binding(get: { model.scheduleStartHour }, set: { model.setSchedule(startHour: $0) })) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                    Picker(t("to"), selection: Binding(get: { model.scheduleEndHour }, set: { model.setSchedule(endHour: $0) })) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                }
+                .controlSize(.small).font(.caption)
+            }
             toggleRow(t("extendedDetection"), "sparkle.magnifyingglass", .white, Binding(get: { model.extendedDetection }, set: { model.setExtendedDetection($0) }), "")
             HStack {
                 Text(t("closedLidHelper")).font(.caption)
@@ -300,10 +365,9 @@ struct LidRunView: View {
             HStack {
                 Text(title).font(.headline)
                 Spacer()
-                Button(t("done")) { showReport = false; showAlerts = false; showSettings = false }
+                Button(t("done")) { showReport = false; showAlerts = false; showSettings = false; showWatch = false }
             }
-            content
-            Spacer(minLength: 0)
+            ScrollView { content }
         }
         .padding(16)
         .frame(width: 350, height: 400, alignment: .topLeading)

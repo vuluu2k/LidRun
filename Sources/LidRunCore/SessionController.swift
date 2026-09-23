@@ -10,6 +10,7 @@ public enum StopReason: String, Equatable, Sendable {
     case workloadFinished = "workload finished"
     case watchdog = "watchdog limit"
     case replaced = "replaced by new session"
+    case processFinished = "process finished"
 }
 
 public struct SessionState: Equatable, Sendable {
@@ -54,6 +55,14 @@ public final class SessionController: @unchecked Sendable {
 
     public func startTimed(seconds: TimeInterval, now: Date = Date()) throws {
         try start(reason: "Timer keep-awake", duration: seconds, now: now)
+    }
+
+    public func startWatching(_ label: String, now: Date = Date()) throws {
+        try start(reason: "Watching: \(label)", duration: nil, now: now)
+    }
+
+    public func startScheduled(until end: Date, now: Date = Date()) throws {
+        try start(reason: "Schedule", duration: end.timeIntervalSince(now), now: now)
     }
 
     public func startAuto(workloads: [String], now: Date = Date()) throws {

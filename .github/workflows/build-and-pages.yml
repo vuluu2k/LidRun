@@ -22,6 +22,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/configure-pages@v6
 
       - name: Test
@@ -40,11 +42,32 @@ jobs:
         run: |
           url="$(./Scripts/upload-webcake.sh "dist/LidRun-$VERSION-unsigned.dmg")"
           sha="$(shasum -a 256 "dist/LidRun-$VERSION-unsigned.dmg" | cut -d ' ' -f 1)"
-          python3 - "$VERSION" "$url" "$sha" <<'PY'
-          import json, sys
-          version, url, sha256 = sys.argv[1:]
-          with open("website/download.json", "w") as f:
-              json.dump({"version": version, "url": url, "sha256": sha256}, f, indent=2)
+          prev_json="$(curl -fsSL https://vuluu2k.github.io/LidRun/download.json || true)"
+          PREV_JSON="$prev_json" python3 - "$VERSION" "$url" "$sha" "$GITHUB_SHA" <<'PY'
+          import json, os, re, subprocess, sys
+          version, url, sha256, commit = sys.argv[1:]
+
+          def git(*args):
+              return subprocess.run(["git", *args], capture_output=True, text=True)
+
+          try:
+              prev = json.loads(os.environ.get("PREV_JSON") or "{}").get("commit") or ""
+          except (ValueError, AttributeError):
+              prev = ""
+          if prev and git("cat-file", "-e", prev + "^{commit}").returncode == 0:
+              log = git("log", "--no-merges", "--pretty=%s", prev + "..HEAD")
+          else:
+              log = git("log", "--no-merges", "--pretty=%s", "-10")
+          notes = []
+          for subject in log.stdout.splitlines():
+              m = re.match(r"(?:feat|fix)(?:\([^)]*\))?!?:\s*(.+)", subject)
+              if m:
+                  note = m.group(1)[:1].upper() + m.group(1)[1:]
+                  if note not in notes:
+                      notes.append(note)
+          with open("website/download.json", "w", encoding="utf-8") as f:
+              json.dump({"version": version, "url": url, "sha256": sha256,
+                         "notes": notes[:8], "commit": commit}, f, indent=2, ensure_ascii=False)
               f.write("\n")
           PY
           echo "download_url=$url" >> "$GITHUB_OUTPUT"

@@ -82,6 +82,40 @@ public struct SystemProcessList: ProcessListing {
     }
 }
 
+public struct WatchCandidate: Identifiable, Equatable, Sendable {
+    public let id: Int32
+    public let name: String
+    public let cpu: Double
+
+    public init(id: Int32, name: String, cpu: Double) {
+        self.id = id
+        self.name = name
+        self.cpu = cpu
+    }
+}
+
+public extension SystemProcessList {
+    /// The current user's processes, busiest first — what someone would want to "keep awake until it ends".
+    func userProcesses(limit: Int = 60) -> [WatchCandidate] {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-U", String(getuid()), "-o", "pid=,pcpu=,comm="]
+        process.standardOutput = pipe
+        guard (try? process.run()) != nil else { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let me = getpid()
+        return (String(data: data, encoding: .utf8) ?? "").split(separator: "\n").compactMap { line -> WatchCandidate? in
+            let parts = line.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+            guard parts.count == 3, let pid = Int32(parts[0]), pid != me, let cpu = Double(parts[1]) else { return nil }
+            return WatchCandidate(id: pid, name: URL(fileURLWithPath: String(parts[2])).lastPathComponent, cpu: cpu)
+        }
+        .sorted { $0.cpu > $1.cpu }
+        .prefix(limit).map { $0 }
+    }
+}
+
 /// Detects uploads/downloads by sampling interface byte counters between calls.
 public final class NetworkActivity: @unchecked Sendable {
     private var last: (bytes: UInt64, time: Date)?
