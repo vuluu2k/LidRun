@@ -4,6 +4,12 @@ All notable changes to LidRun Personal. Releases are built automatically from
 `main` and numbered `0.1.<build>`; builds that failed are folded into the next
 release.
 
+## 0.1.23 — 2026-09-23
+
+### Fixed
+- The Update button now actually restarts into the new version. The installer never stopped the running app (macOS `pgrep` skips the calling process's ancestors, and the app is one), so the new version was installed but the old one kept running.
+- New releases show up right away instead of up to 10 minutes later (the release check no longer uses the HTTP cache).
+
 ## 0.1.22 — 2026-09-23
 
 ### Added
