@@ -106,7 +106,6 @@ final class AppModel: ObservableObject {
     var temperatureText: String { systemMetrics.temperatureCelsius.map { "\($0)°C" } ?? thermalText }
     var temperatureSeverity: TemperatureSeverity { .classify(systemMetrics.temperatureCelsius) }
     var fanText: String { systemMetrics.fanRPM.map { "\($0)" } ?? "N/A" }
-    var displayText: String { systemMetrics.displayIsAsleep ? "Off" : "On" }
     var activeDurationText: String {
         guard let startedAt = session.startedAt else { return L10n.text("notRunning", language) }
         let seconds = max(0, Int(now.timeIntervalSince(startedAt)))

@@ -90,7 +90,7 @@ struct LidRunView: View {
             metric("thermometer.medium", model.temperatureText, accent: temperatureColor)
             metric("cpu", model.cpuText)
             metric("fanblades", model.fanText)
-            metric("laptopcomputer", model.closedLidEnabled ? "On" : "Off")
+            metric("clock", model.activeDurationText)
         }
     }
 
