@@ -312,9 +312,13 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private nonisolated static func notificationAuthorizationStatus() async -> UNAuthorizationStatus {
+        await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+    }
+
     private func refreshNotificationStatus() {
         Task { [weak self] in
-            switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
+            switch await Self.notificationAuthorizationStatus() {
             case .authorized, .provisional: self?.notificationStatus = "Authorized"
             case .denied: self?.notificationStatus = "Denied"
             default: self?.notificationStatus = "Not requested"
