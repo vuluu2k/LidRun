@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="LidRun keeps long-running work awake on macOS with local automation and safety guardrails.">
+  <meta name="theme-color" content="#171316">
+  <title>LidRun — Keep work running on macOS</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="nav wrap">
+    <a class="brand" href="#top" aria-label="LidRun home"><span class="brand-mark">◒</span>LidRun</a>
+    <nav>
+      <a href="#features" data-i18n="navFeatures">Tính năng</a>
+      <a href="#install" data-i18n="navInstall">Cài đặt</a>
+      <a id="source-link" hidden data-i18n="source">Mã nguồn</a>
+      <button id="language" type="button" aria-label="Switch language">EN</button>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow" data-i18n="eyebrow">MIỄN PHÍ · MÃ NGUỒN MỞ · CHẠY CỤC BỘ</p>
+        <h1 data-i18n="heroTitle">Để công việc chạy tiếp.<br><em>Kể cả khi đóng máy.</em></h1>
+        <p class="lead" data-i18n="heroBody">Một tiện ích menu bar nhỏ gọn giữ Mac thức khi Claude Code, Cursor, Docker hoặc Ollama đang làm việc — với giới hạn pin và nhiệt độ tích hợp.</p>
+        <div class="actions">
+          <a class="button primary download-link" href="https://statics.pancake.vn/web-media-263/d0/d6/57/31/a46f8c594ebd3453fd5e086bce131dd4483f69cf17abad4ffa3c5e50.dmg" data-i18n="download">Tải LidRun miễn phí</a>
+          <a class="button secondary" href="#install" data-i18n="howInstall">Cách cài đặt</a>
+        </div>
+        <p class="meta"><span id="version">v0.1.0</span> · <span data-i18n="requirement">macOS 13 trở lên</span> · <span data-i18n="unsigned">Bản build chưa notarize</span></p>
+      </div>
+      <div class="preview">
+        <div class="glow"></div>
+        <img src="assets/lidrun-panel.png" alt="LidRun menu bar control panel" width="485" height="632">
+      </div>
+    </section>
+
+    <section class="trust">
+      <div class="wrap trust-grid">
+        <span data-i18n="trust1">Không tài khoản</span>
+        <span data-i18n="trust2">Không thuê bao</span>
+        <span data-i18n="trust3">Không gửi telemetry ra ngoài</span>
+        <span data-i18n="trust4">Dữ liệu lưu trên máy</span>
+      </div>
+    </section>
+
+    <section id="features" class="section wrap">
+      <p class="eyebrow" data-i18n="featuresEye">NHỎ GỌN, NHƯNG ĐỦ DÙNG</p>
+      <h2 data-i18n="featuresTitle">Tập trung vào công việc, không phải cài đặt nguồn điện.</h2>
+      <div class="cards">
+        <article><b>01</b><h3 data-i18n="f1Title">Auto Mode</h3><p data-i18n="f1Body">Tự giữ máy thức khi phát hiện Claude Code, Cursor, Docker, Ollama hoặc process bạn chọn.</p></article>
+        <article><b>02</b><h3 data-i18n="f2Title">Closed-Lid Mode</h3><p data-i18n="f2Body">Giữ phiên làm việc khi đóng nắp và dùng màn hình ngoài. Hiệu quả còn phụ thuộc phần cứng và nguồn điện.</p></article>
+        <article><b>03</b><h3 data-i18n="f3Title">Safety first</h3><p data-i18n="f3Body">Tự dừng theo pin yếu, mất sạc hoặc nhiệt độ nguy hiểm. Hiển thị CPU, pin, nhiệt và quạt thực.</p></article>
+        <article><b>04</b><h3 data-i18n="f4Title">Alerts & webhooks</h3><p data-i18n="f4Body">Thông báo macOS cùng webhook cho Discord, Slack, Teams và endpoint JSON riêng.</p></article>
+        <article><b>05</b><h3 data-i18n="f5Title">Phím tắt toàn cục</h3><p data-i18n="f5Body">Điều khiển Auto Mode, Keep Awake, Closed-Lid và Stop mà không rời bàn phím.</p></article>
+        <article><b>06</b><h3 data-i18n="f6Title">Báo cáo cục bộ</h3><p data-i18n="f6Body">Nhật ký JSONL và báo cáo tuần nằm trên máy bạn. Không analytics, không tài khoản.</p></article>
+      </div>
+    </section>
+
+    <section id="install" class="section install">
+      <div class="wrap install-grid">
+        <div>
+          <p class="eyebrow" data-i18n="installEye">CÀI TRONG 1 PHÚT</p>
+          <h2 data-i18n="installTitle">Ba bước, không cần Terminal.</h2>
+          <p class="install-note" data-i18n="gatekeeper">LidRun được ký ad-hoc để phát hành miễn phí, chưa được Apple notarize. Vì vậy lần mở đầu tiên cần dùng menu Open.</p>
+        </div>
+        <ol>
+          <li><span>1</span><div><h3 data-i18n="step1Title">Tải và mở DMG</h3><p data-i18n="step1Body">Kéo LidRun.app vào thư mục Applications.</p></div></li>
+          <li><span>2</span><div><h3 data-i18n="step2Title">Control-click LidRun</h3><p data-i18n="step2Body">Trong Applications, nhấp chuột phải hoặc Control-click ứng dụng.</p></div></li>
+          <li><span>3</span><div><h3 data-i18n="step3Title">Chọn Open hai lần</h3><p data-i18n="step3Body">Chọn Open trong menu, rồi Open trong cảnh báo. macOS sẽ ghi nhớ lựa chọn.</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section wrap faq">
+      <p class="eyebrow">FAQ</p>
+      <details open><summary data-i18n="q1">LidRun có thật sự miễn phí không?</summary><p data-i18n="a1">Có. Không gói trả phí, không giới hạn thời gian và không thu thập dữ liệu sử dụng.</p></details>
+      <details><summary data-i18n="q2">Tại sao macOS cảnh báo khi mở?</summary><p data-i18n="a2">Bản tải miễn phí chưa được notarize bằng tài khoản Apple Developer trả phí. Dùng Control-click → Open ở lần đầu.</p></details>
+      <details><summary data-i18n="q3">Closed-Lid có hoạt động trên mọi Mac không?</summary><p data-i18n="a3">Không thể đảm bảo trên mọi cấu hình. macOS, nguồn điện, màn hình ngoài và phần cứng có thể ảnh hưởng. Hãy thử với công việc không quan trọng trước.</p></details>
+    </section>
+
+    <section class="cta wrap">
+      <h2 data-i18n="ctaTitle">Đừng để một lần sleep làm mất cả phiên chạy.</h2>
+      <a class="button primary download-link" href="https://statics.pancake.vn/web-media-263/d0/d6/57/31/a46f8c594ebd3453fd5e086bce131dd4483f69cf17abad4ffa3c5e50.dmg" data-i18n="download">Tải LidRun miễn phí</a>
+      <p><span id="checksum-label">SHA-256</span>: <code id="checksum">d0d65731…e50</code></p>
+    </section>
+  </main>
+
+  <footer class="wrap"><span>© <span id="year"></span> LidRun</span><span data-i18n="footer">Built for long-running work.</span></footer>
+</body>
+</html>

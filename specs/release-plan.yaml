@@ -1,0 +1,98 @@
+release: v0.1-mvp
+objective: Build a local-first macOS keep-awake utility inspired by LidRun.
+status: draft
+source_scope: specs/product/SCOPE_LATEST.yaml
+
+epics:
+  - id: E01
+    slug: mvp
+    title: Local keep-awake session MVP
+    goal: User can start/stop a guarded awake session and see current status.
+    stories:
+      - id: E01S01
+        title: Start and stop manual keep-awake session
+        scope_refs: [SCOPE-01]
+      - id: E01S02
+        title: Timer-limited sessions
+        scope_refs: [SCOPE-02]
+      - id: E01S03
+        title: Current status and awake reason
+        scope_refs: [SCOPE-01, SCOPE-07]
+  - id: E02
+    slug: guardrails
+    title: Safety guardrails
+    goal: Safety conditions automatically release the Mac.
+    stories:
+      - id: E02S01
+        title: Charging-only release
+        scope_refs: [SCOPE-03]
+      - id: E02S02
+        title: Low-battery release threshold
+        scope_refs: [SCOPE-04]
+      - id: E02S03
+        title: Thermal-pressure release
+        scope_refs: [SCOPE-05]
+  - id: E03
+    slug: launch
+    title: Usable first release
+    goal: Package the MVP with basic onboarding, logs, and safety copy.
+    stories:
+      - id: E03S01
+        title: Activity log persisted locally
+        scope_refs: [SCOPE-07]
+      - id: E03S02
+        title: Common dev workload detection
+        scope_refs: [SCOPE-06]
+      - id: E03S03
+        title: Safety onboarding and release checklist
+        scope_refs: [SCOPE-08]
+  - id: E04
+    slug: pro-automation
+    title: Pro automation
+    goal: Add Closed-Lid Mode, Auto Mode, Run Command, and Watchdog rules.
+    stories:
+      - id: E04S01
+        title: Closed-Lid Mode
+        scope_refs: [PRO-01]
+      - id: E04S02
+        title: Auto Mode workload detection
+        scope_refs: [PRO-02]
+      - id: E04S03
+        title: Run Command CLI
+        scope_refs: [PRO-03]
+      - id: E04S04
+        title: Watchdog rules
+        scope_refs: [PRO-04]
+  - id: E05
+    slug: alerts-dashboard
+    title: Alerts, webhooks, dashboard, reports
+    goal: Explain unattended runs and notify users.
+    stories:
+      - id: E05S01
+        title: macOS alerts
+        scope_refs: [PRO-05]
+      - id: E05S02
+        title: Webhooks
+        scope_refs: [PRO-06]
+      - id: E05S03
+        title: Dashboard
+        scope_refs: [PRO-07]
+      - id: E05S04
+        title: Weekly local report
+        scope_refs: [PRO-08]
+  - id: E06
+    slug: release-commercial
+    title: Commercial release readiness
+    goal: Sign, package, document, and prepare optional licensing later.
+    stories:
+      - id: E06S01
+        title: Signing and notarization
+      - id: E06S02
+        title: DMG packaging
+      - id: E06S03
+        title: Safety docs
+      - id: E06S04
+        title: Optional licensing later
+
+initial_order: [E01, E02, E03, E04, E05, E06]
+next_step: Create Swift macOS app skeleton, then implement E01S01 PowerAssertion + SessionController.

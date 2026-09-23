@@ -1,0 +1,73 @@
+product: lidrun_like_pro
+source_references:
+  - https://lidrun.com/
+  - https://lidrun.com/pricing
+  - https://lidrun.com/safety
+
+pro_feature_targets:
+  - id: PRO-01
+    name: Closed-Lid Mode
+    description: Keep selected AI/dev work alive after MacBook lid closes, with safety releases.
+    must_have:
+      - Explicit arm/disarm state before lid close.
+      - Safety warning and checklist.
+      - Auto-release on battery, thermal, timer, or rule failure.
+  - id: PRO-02
+    name: Auto Mode
+    description: Detect common AI/dev workloads and hold awake while they run.
+    must_have:
+      - Claude Code, Cursor, Docker, Ollama detection.
+      - Manual include/exclude list.
+      - Why Awake explanation.
+  - id: PRO-03
+    name: Run Command
+    description: Run any command under the app and sleep/release when it exits.
+    must_have:
+      - CLI wrapper: apprun -- <command>.
+      - Capture exit code, duration, stdout/stderr tail path.
+      - Release assertion when command exits unless another rule holds it.
+  - id: PRO-04
+    name: Watchdog Rules
+    description: User-defined rules that start, keep, alert, or release sessions.
+    must_have:
+      - Process rule: name/path/bundle id.
+      - Command rule: run and watch PID.
+      - Time rule: max runtime window.
+      - Power rule: charging-only / battery threshold.
+      - Thermal rule: release on serious/critical pressure.
+  - id: PRO-05
+    name: Alerts
+    description: Notify users when important run state changes.
+    must_have:
+      - macOS notification on start/stop/failure/guardrail release.
+      - Optional sound-less quiet mode.
+      - Clear stop reason.
+  - id: PRO-06
+    name: Webhooks
+    description: POST run events to a user URL.
+    must_have:
+      - Event types: started, stopped, guardrail_triggered, command_finished, watchdog_alert.
+      - Retry with small fixed backoff.
+      - Secret token header stored locally.
+  - id: PRO-07
+    name: Dashboard
+    description: Local dashboard for current state and history.
+    must_have:
+      - Current session card.
+      - Recent runs.
+      - Hours protected and guardrail rescues.
+      - No cloud backend required for MVP Pro.
+  - id: PRO-08
+    name: Weekly Reports
+    description: Local weekly summary of protected hours and rescue events.
+    must_have:
+      - Generate from local event log.
+      - Export markdown or copy summary.
+      - No email service in first version.
+
+cut_for_first_paid_clone:
+  - Team management.
+  - License server.
+  - Cloud analytics.
+  - Priority support workflow.
+  - Perfect parity with LidRun private internals.

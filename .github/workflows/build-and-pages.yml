@@ -1,0 +1,58 @@
+name: Build LidRun and deploy website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-14
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+
+      - name: Test
+        run: swift test
+
+      - name: Build DMG
+        env:
+          VERSION: 0.1.${{ github.run_number }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./Scripts/build-free-dmg.sh
+
+      - name: Upload DMG to WebCake
+        id: upload
+        env:
+          VERSION: 0.1.${{ github.run_number }}
+        run: |
+          url="$(./Scripts/upload-webcake.sh "dist/LidRun-$VERSION-unsigned.dmg")"
+          sha="$(shasum -a 256 "dist/LidRun-$VERSION-unsigned.dmg" | cut -d ' ' -f 1)"
+          python3 - "$VERSION" "$url" "$sha" <<'PY'
+          import json, sys
+          version, url, sha256 = sys.argv[1:]
+          with open("website/download.json", "w") as f:
+              json.dump({"version": version, "url": url, "sha256": sha256}, f, indent=2)
+              f.write("\n")
+          PY
+          echo "download_url=$url" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

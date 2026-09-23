@@ -1,0 +1,58 @@
+feature_name: lidrun_like_mac_awake_app
+core_value: >-
+  Keep a Mac awake for important AI/dev jobs, including closed-lid sessions, while
+  stopping safely on battery, heat, timer, or job completion.
+summary: >-
+  Build a macOS utility inspired by LidRun for developers who need Claude Code,
+  Cursor, Docker, Ollama, or long terminal jobs to continue while they step away.
+  The MVP should focus on one reliable local workflow: start a guarded keep-awake
+  session, see why the Mac is awake, and auto-release when safety limits or the
+  selected runtime condition is reached.
+
+  The first release should be boring and local-first: no account system, no team
+  dashboard, no subscription backend. A small menu-bar app plus an optional CLI is
+  enough if it can safely hold and release sleep.
+in_scope:
+  - id: SCOPE-01
+    item: Menu-bar app to start, stop, and inspect a keep-awake session.
+  - id: SCOPE-02
+    item: Timed sessions from 30 minutes to 8 hours.
+  - id: SCOPE-03
+    item: Charging-only mode that releases sleep when unplugged.
+  - id: SCOPE-04
+    item: Low-battery release threshold with safe sleep before shutdown risk.
+  - id: SCOPE-05
+    item: Thermal-pressure release using macOS thermal state signals.
+  - id: SCOPE-06
+    item: Activity detection for common developer workloads, with manual override.
+  - id: SCOPE-07
+    item: Activity log showing why a session started, stayed awake, and stopped.
+  - id: SCOPE-08
+    item: Minimal onboarding/safety warning for closed-lid use.
+out_of_scope:
+  - item: Payments, licensing, subscriptions, or team seats.
+    why: Deferred until the local product proves useful.
+  - item: Cloud telemetry dashboard and global stats.
+    why: Not needed for MVP; adds privacy and backend work.
+  - item: Auto-update infrastructure.
+    why: Release packaging can come after a working local app.
+  - item: Perfect closed-lid guarantee in unsafe physical conditions.
+    why: Hardware heat and ventilation remain user responsibility.
+  - item: Windows or Linux support.
+    why: The product is macOS-specific.
+  - item: Complex process-tree intelligence for every app.
+    why: Start with known dev workloads and manual mode.
+constraints:
+  platform: macOS only
+  distribution: local dev build first; signed/notarized release later
+  safety: safety release beats user convenience every time
+  privacy: default to local-only logs and settings
+  implementation: prefer native macOS APIs and shell tools before new services
+success_criteria:
+  - A user can start a keep-awake session, close/idle the Mac, and stop it manually.
+  - The app releases sleep when timer expires, battery falls below threshold, charger disconnects in charging-only mode, or thermal state is unsafe.
+  - The UI explains the current awake reason and the stop reason.
+  - The activity log survives app restart.
+  - No backend is required for MVP.
+references:
+  - https://lidrun.com/

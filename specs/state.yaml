@@ -1,0 +1,40 @@
+project: LidRun-like macOS Pro clone
+phase: implementation
+current_focus: E04 Pro automation
+next_step: Use the new in-app notification/webhook tests, verify closed-lid behavior on physical hardware, then add signed/notarized packaging and auto-update; active fan writes require a properly signed privileged helper.
+active_docs:
+  - AGENTS.md
+  - specs/product/SCOPE_LATEST.yaml
+  - specs/product/PRO_FEATURES_LATEST.yaml
+  - specs/tech-architecture/TECH_STACK_LATEST.md
+  - specs/agents/CONTEXT_STABILITY.md
+open_decisions:
+  - App name/package identifier.
+  - Minimum macOS version; default proposal is macOS 13+.
+last_updated: 2026-09-22
+completed:
+  - SwiftPM macOS skeleton.
+  - Menu-bar app with manual/timed keep-awake.
+  - IOKit no-idle-sleep assertion wrapper.
+  - Local JSONL event log.
+  - Core tests for session start/stop logging.
+  - Charging-only, low-battery, and thermal guardrails.
+  - Guardrail tests for safety decisions.
+  - Auto Mode process detection for Claude Code, Cursor, Docker, and Ollama.
+  - Workload detector tests.
+  - Custom SwiftUI popover control panel.
+  - Run Command CLI via `swift run apprun -- <command>` with exit-code propagation and safety monitoring.
+  - Closed-Lid system-sleep assertion with safety release.
+  - Watchdog time/process/power/thermal rules.
+  - macOS alerts and JSON webhooks.
+  - Compact local dashboard and seven-day report export.
+  - Persistent local settings.
+  - English/Vietnamese in-app localization.
+  - Custom process Smart Rules.
+  - Reference-matched compact gradient UI with left-aligned labels.
+  - Live battery, CPU, display, AppleSMC temperature, and AppleSMC fan RPM telemetry.
+  - Launch at login.
+  - Global Control+Option hotkeys for Auto, Keep Awake, Closed-Lid, and Stop.
+  - Webhook bearer token and three-attempt retry.
+  - Sheet-based detail views; no scrolling in the main panel.
+  - Dynamic icon-only menu bar state: moon idle, sun awake, bolt charging-only, laptop closed-lid.
