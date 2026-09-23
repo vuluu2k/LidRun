@@ -22,7 +22,7 @@ const copy = {
     q4:'Is LidRun Personal related to lidrun.com?', a4:'No. This is an independent open-source project, not affiliated with the commercial LidRun at lidrun.com. The app was renamed “LidRun Personal” to avoid confusion.',
     navDonate:'Sponsor', donateEye:'SUPPORT THE PROJECT', donateTitle:'Free forever. Chip in if it helps.',
     donateBody:'LidRun Personal will always be free and open source, with no paid tier. Donations buy development time and go toward an Apple Developer account ($99/year) so the app can be notarized and install without Gatekeeper warnings.',
-    donateGithub:'One-time or monthly', donateCoffee:'A small one-time tip', donateBank:'Bank transfer (VietQR)', donateAccount:'Account', donateHolder:'Account holder',
+    donateGithub:'One-time or monthly', donateCoffee:'A small one-time tip', donateBank:'Bank transfer (VietQR)', donateBankName:'Bank', donateAccount:'Account', donateHolder:'Account holder',
     ctaTitle:'Do not let one sleep event end a long-running job.', footer:'Built for long-running work.',
     panelReady:'Ready', panelCharging:'Charging', panelAutoMode:'Auto Mode', panelKeepAwake:'Keep Awake', panelChargingOnly:'Only When Charging', panelTimer:'Timer', panelClosedLid:'Closed-Lid Mode', panelCooling:'Cooling', panelStop:'Stop',
     panelStatus:'Status', panelProtected:'Protected', panelTasks:'Tasks &amp; Reports', panelNotifications:'Notifications &amp; Webhooks', panelSettings:'Settings', panelQuit:'Quit LidRun', panelUpdate:'Update to v0.1.15'
@@ -30,7 +30,7 @@ const copy = {
 };
 
 // Donation channels: a card shows only when its value is filled in.
-const donate = { github: 'https://github.com/sponsors/vuluu2k', coffee: 'https://buymeacoffee.com/vuluu04032j', vietqr: { bank: '', account: '', name: '' } };
+const donate = { github: 'https://github.com/sponsors/vuluu2k', coffee: 'https://buymeacoffee.com/vuluu04032j', vietqr: { bank: 'vietcombank', bankName: 'Vietcombank', account: '2898709170', name: 'LUU CONG QUANG VU' } };
 function renderDonate() {
   const { github, coffee, vietqr } = donate;
   const qr = vietqr.bank && vietqr.account && vietqr.name;
@@ -43,6 +43,7 @@ function renderDonate() {
       src: `https://img.vietqr.io/image/${encodeURIComponent(vietqr.bank)}-${encodeURIComponent(vietqr.account)}-compact2.png?accountName=${encodeURIComponent(vietqr.name)}`,
       alt: `VietQR ${vietqr.bank} ${vietqr.account} ${vietqr.name}`
     });
+    qrCard.querySelector('.qr-bank').textContent = vietqr.bankName || vietqr.bank;
     qrCard.querySelector('.qr-account').textContent = vietqr.account;
     qrCard.querySelector('.qr-name').textContent = vietqr.name;
   }
