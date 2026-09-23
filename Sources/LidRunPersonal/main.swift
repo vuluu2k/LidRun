@@ -8,6 +8,7 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
     private let model = AppModel()
     private let popover = NSPopover()
     private var statusItem: NSStatusItem?
+    private var fallbackWindow: NSWindow?
     private var hotKeys: GlobalHotKeys?
     private var subscriptions = Set<AnyCancellable>()
 
@@ -40,6 +41,17 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
                 self?.statusItem?.button?.image = NSImage(systemSymbolName: symbol, accessibilityDescription: "LidRun")
             }
             .store(in: &subscriptions)
+
+        // Menu bar icon can be hidden behind the notch on a crowded menu bar; open the panel so launch is never silent.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            if self?.statusItemVisible == false { self?.showWindow() }
+        }
+    }
+
+    // Double-clicking the app again (Finder/Launchpad) lands here.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        statusItemVisible ? showPopover() : showWindow()
+        return false
     }
 
     nonisolated func userNotificationCenter(
@@ -55,6 +67,29 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificati
 
     @objc private func togglePopover() {
         popover.isShown ? popover.performClose(nil) : showPopover()
+    }
+
+    private var statusItemVisible: Bool {
+        guard let window = statusItem?.button?.window, window.occlusionState.contains(.visible),
+              let screen = window.screen else { return false }
+        guard let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea else { return true }
+        let notch = NSRect(x: left.maxX, y: left.minY, width: right.minX - left.maxX, height: left.height)
+        return !window.frame.intersects(notch)
+    }
+
+    private func showWindow() {
+        if fallbackWindow == nil {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: LidRunView(model: model)))
+            window.title = "LidRun"
+            window.styleMask = [.titled, .closable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.isReleasedWhenClosed = false
+            window.center()
+            fallbackWindow = window
+        }
+        model.refresh()
+        fallbackWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     private func showPopover() {

@@ -13,8 +13,12 @@ CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
 
 rm -rf "$APP"
-mkdir -p "$MACOS"
+mkdir -p "$MACOS" "$CONTENTS/Resources"
 cp "$BIN" "$MACOS/LidRun"
+ICONSET="$PWD/.build/AppIcon.iconset"
+rm -rf "$ICONSET"
+swift Scripts/make-icon.swift "$ICONSET"
+iconutil -c icns "$ICONSET" -o "$CONTENTS/Resources/AppIcon.icns"
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -22,6 +26,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>en</string>
   <key>CFBundleExecutable</key><string>LidRun</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIdentifier</key><string>io.opensource.lidrun</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>CFBundleName</key><string>LidRun</string>
