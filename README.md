@@ -1,6 +1,6 @@
 # LidRun Personal
 
-Native macOS keep-awake app inspired by LidRun.
+Native macOS keep-awake app inspired by LidRun. Free and open source under the [MIT License](LICENSE).
 
 ## Run dev app
 
