@@ -104,5 +104,14 @@ let app = NSApplication.shared
 let delegate = LidRunAppDelegate()
 app.delegate = delegate
 app.setActivationPolicy(.accessory)
+// Accessory apps show no menu bar, but ⌘X/C/V/A/Z in text fields only work through Edit menu key equivalents.
+let editMenu = NSMenu(title: "Edit")
+for (title, action, key) in [("Undo", "undo:", "z"), ("Redo", "redo:", "Z"), ("Cut", "cut:", "x"),
+                             ("Copy", "copy:", "c"), ("Paste", "paste:", "v"), ("Select All", "selectAll:", "a")] {
+    editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
+}
+let mainMenu = NSMenu()
+mainMenu.addItem(withTitle: "Edit", action: nil, keyEquivalent: "").submenu = editMenu
+app.mainMenu = mainMenu
 app.finishLaunching()
 app.run()
