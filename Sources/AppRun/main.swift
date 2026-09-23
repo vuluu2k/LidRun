@@ -31,7 +31,10 @@ guard FileManager.default.isExecutableFile(atPath: resolvedExecutable) else {
 }
 
 // Same guardrails and webhook as the menu bar app (its UserDefaults domain).
-let settings = AppSettings(defaults: UserDefaults(suiteName: AppSettings.domain) ?? .standard)
+// Inside the app bundle apprun shares the app's bundle id, where .standard already is that domain
+// (and a suite with your own id is ignored).
+let settingsDefaults = Bundle.main.bundleIdentifier == AppSettings.domain ? .standard : UserDefaults(suiteName: AppSettings.domain) ?? .standard
+let settings = AppSettings(defaults: settingsDefaults)
 
 @MainActor func postWebhook(event: String, reason: String) {
     guard let url = URL(string: settings.webhookURL), !settings.webhookURL.isEmpty else { return }

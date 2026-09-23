@@ -41,7 +41,27 @@ public enum SystemSleep {
         runAsAdmin("\(pmset) -a disablesleep 0; /bin/rm -f \(sudoersPath)")
     }
 
-    private static func runAsAdmin(_ shell: String) -> Bool {
+    /// A detached watcher that restores sleep if this process dies without cleaning up (crash, force quit).
+    public static func startCrashGuard() -> Process? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "while kill -0 \(getpid()) 2>/dev/null; do sleep 2; done; /usr/bin/sudo -n \(pmset) -a disablesleep 0"]
+        return (try? process.run()) != nil ? process : nil
+    }
+
+    public static let commandLineToolPath = "/usr/local/bin/apprun"
+
+    /// True when /usr/local/bin/apprun points at `bundled`.
+    public static func commandLineToolInstalled(bundled: String) -> Bool {
+        (try? FileManager.default.destinationOfSymbolicLink(atPath: commandLineToolPath)) == bundled
+    }
+
+    /// Symlinks the apprun inside the app bundle; updates replace the bundle in place, so the link keeps working.
+    public static func installCommandLineTool(bundled: String) -> Bool {
+        runAsAdmin("/bin/mkdir -p /usr/local/bin && /bin/ln -sf '\(bundled)' \(commandLineToolPath)")
+    }
+
+    public static func runAsAdmin(_ shell: String) -> Bool {
         let escaped = shell.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         return run("/usr/bin/osascript", ["-e", "do shell script \"\(escaped)\" with administrator privileges"]) == 0
     }

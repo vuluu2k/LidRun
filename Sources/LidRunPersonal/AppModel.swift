@@ -24,6 +24,7 @@ final class AppModel: ObservableObject {
     @Published var launchAtLogin = false
     @Published private(set) var extendedDetection = false
     @Published private(set) var closedLidHelperInstalled = SystemSleep.closedLidHelperInstalled
+    @Published private(set) var commandLineToolInstalled = false
     @Published var language: AppLanguage = .english
     @Published var errorMessage: String?
     @Published private(set) var notificationStatus = "Not requested"
@@ -53,11 +54,16 @@ final class AppModel: ObservableObject {
     private var closedLidChecklistAccepted = false
     private var heatWarned = false
     private var panelVisible = false
+    private var crashGuard: Process?
+    private var isQuitting = false
+    private var bundledAppRun: String { Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/apprun").path }
 
     init() {
         // Recover from a crash that left `disablesleep 1` behind.
         SystemSleep.setSleepDisabled(false)
         loadSettings()
+        refreshLaunchAtLogin()
+        commandLineToolInstalled = SystemSleep.commandLineToolInstalled(bundled: bundledAppRun)
         refreshNotificationStatus()
         controller.onChange = { [weak self] state in
             Task { @MainActor in self?.sessionChanged(state) }
@@ -114,6 +120,46 @@ final class AppModel: ObservableObject {
         return "\(seconds / 3600)h"
     }
     var isCharging: Bool { snapshot?.isCharging == true }
+
+    var whyAwakeText: String {
+        let why = session.whyAwake
+        if why.hasPrefix("Auto Mode: ") { return L10n.text("autoMode", language) + ": " + why.dropFirst("Auto Mode: ".count) }
+        return L10n.text(why, language)
+    }
+
+    /// "until 15:30 · 1h 12m left" for timers, the watchdog cap for open-ended sessions.
+    var nextReleaseText: String {
+        guard session.isActive else { return L10n.text("None", language) }
+        if let releaseAt = session.releaseAt {
+            let left = max(0, Int(releaseAt.timeIntervalSince(now)) / 60)
+            let clock = releaseAt.formatted(date: .omitted, time: .shortened)
+            return "\(L10n.text("until", language)) \(clock) · \(left >= 60 ? "\(left / 60)h \(left % 60)m" : "\(left)m")"
+        }
+        return watchdogMinutes.map { "\(L10n.text("max", language)) \($0 / 60)h" } ?? L10n.text("Manual stop", language)
+    }
+
+    struct PastSession: Identifiable {
+        let id: Date
+        let reason: String
+        let duration: TimeInterval
+        let stopReason: String?
+    }
+
+    /// Started/stopped pairs from the log, newest first.
+    var recentSessions: [PastSession] {
+        var result: [PastSession] = []
+        var open: RunEvent?
+        for event in weeklyEvents {
+            if event.type == .started {
+                open = event
+            } else if event.type == .stopped, let began = open {
+                result.append(PastSession(id: began.time, reason: began.reason, duration: event.time.timeIntervalSince(began.time), stopReason: event.reason))
+                open = nil
+            }
+        }
+        if let open { result.append(PastSession(id: open.time, reason: open.reason, duration: Date().timeIntervalSince(open.time), stopReason: nil)) }
+        return Array(result.suffix(8).reversed())
+    }
     func webhookPlatform(for value: String) -> String {
         guard let url = URL(string: value), !value.isEmpty else { return "Not configured" }
         return WebhookPlatform.detect(url: url).rawValue
@@ -198,6 +244,7 @@ final class AppModel: ObservableObject {
                     return
                 }
                 sleepDisabled = true
+                crashGuard = SystemSleep.startCrashGuard()
             }
             closedLidEnabled = true
             try? eventLog.append(RunEvent(type: .armed, reason: sleepDisabled ? "Closed-Lid Mode (sleep disabled)" : "Closed-Lid Mode (AC only)"))
@@ -222,6 +269,17 @@ final class AppModel: ObservableObject {
         return true
     }
 
+    func installCommandLineTool() {
+        let bundled = bundledAppRun
+        Task { [weak self] in
+            let installed = await Task.detached {
+                _ = SystemSleep.installCommandLineTool(bundled: bundled)
+                return SystemSleep.commandLineToolInstalled(bundled: bundled)
+            }.value
+            self?.commandLineToolInstalled = installed
+        }
+    }
+
     func setExtendedDetection(_ enabled: Bool) { extendedDetection = enabled; saveSettings(); refresh() }
 
     func installClosedLidHelper() { changeClosedLidHelper { SystemSleep.installClosedLidHelper() } }
@@ -242,6 +300,8 @@ final class AppModel: ObservableObject {
     private func releaseClosedLid() {
         closedLidAssertion.release()
         if sleepDisabled { SystemSleep.setSleepDisabled(false); sleepDisabled = false }
+        crashGuard?.terminate()
+        crashGuard = nil
         if closedLidEnabled { try? eventLog.append(RunEvent(type: .disarmed, reason: "Closed-Lid Mode")) }
         closedLidEnabled = false
     }
@@ -288,7 +348,7 @@ final class AppModel: ObservableObject {
 
     func saveWebhook(_ value: String) {
         webhookURL = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        webhookStatus = webhookURL.isEmpty ? "Not configured" : "Saved"
+        webhookStatus = L10n.text(webhookURL.isEmpty ? "Not configured" : "Saved", language)
         saveSettings()
     }
 
@@ -301,6 +361,16 @@ final class AppModel: ObservableObject {
     func setWebhookToken(_ value: String) { webhookToken = value; saveSettings() }
     func setLanguage(_ value: AppLanguage) { language = value; saveSettings() }
     func saveCustomRules(_ value: String) { customProcessRules = value; saveSettings(); refresh() }
+
+    /// The login item is recorded against a bundle path; after the rename to "LidRun Personal.app" (or a move)
+    /// re-register so it doesn't point at the old, deleted app.
+    private func refreshLaunchAtLogin() {
+        let path = Bundle.main.bundlePath
+        defer { UserDefaults.standard.set(path, forKey: "registeredBundlePath") }
+        guard launchAtLogin, UserDefaults.standard.string(forKey: "registeredBundlePath") != path else { return }
+        try? SMAppService.mainApp.unregister()
+        try? SMAppService.mainApp.register()
+    }
 
     func setLaunchAtLogin(_ enabled: Bool) {
         do {
@@ -327,13 +397,20 @@ final class AppModel: ObservableObject {
         evaluateSafety()
     }
 
-    func shutdown() {
+    /// Stops everything and waits (max 3 s) for the "stopped" webhook; the async onChange path never ran before exit.
+    func shutdown() async {
         monitor?.invalidate()
         ticker?.invalidate()
         metricsMonitor?.invalidate()
         watchdog?.invalidate()
+        isQuitting = true
+        let wasActive = controller.state.isActive
         releaseClosedLid()
         controller.stop(reason: .appQuit)
+        guard wasActive, let delivery = publish(title: "LidRun stopped", body: StopReason.appQuit.rawValue, event: "stopped") else { return }
+        let timeout = Task { try? await Task.sleep(for: .seconds(3)); delivery.cancel() }
+        await delivery.value
+        timeout.cancel()
     }
 
     private func updateSystemMetrics() {
@@ -350,6 +427,7 @@ final class AppModel: ObservableObject {
 
     private func sessionChanged(_ state: SessionState) {
         session = state
+        if isQuitting { return }
         if state.isActive {
             scheduleWatchdog()
             publish(title: "LidRun started", body: state.whyAwake, event: "started")
@@ -462,37 +540,38 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func publish(title: String, body: String, event: String, reportWebhookStatus: Bool = false) {
+    @discardableResult
+    private func publish(title: String, body: String, event: String, reportWebhookStatus: Bool = false) -> Task<Void, Never>? {
         if alertsEnabled {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
-        guard let url = URL(string: webhookURL), !webhookURL.isEmpty else { return }
+        guard let url = URL(string: webhookURL), !webhookURL.isEmpty else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if !webhookToken.isEmpty { request.setValue("Bearer \(webhookToken)", forHTTPHeaderField: "Authorization") }
         let platform = WebhookPlatform.detect(url: url)
         request.httpBody = try? platform.body(event: event, reason: body)
-        sendWebhook(request, reportStatus: reportWebhookStatus)
+        return sendWebhook(request, reportStatus: reportWebhookStatus)
     }
 
-    private func sendWebhook(_ request: URLRequest, reportStatus: Bool) {
-        if reportStatus { webhookStatus = "Sending…" }
-        Task {
+    private func sendWebhook(_ request: URLRequest, reportStatus: Bool) -> Task<Void, Never> {
+        if reportStatus { webhookStatus = L10n.text("webhookSending", language) }
+        return Task {
             for attempt in 0..<3 {
                 do {
                     let (_, response) = try await URLSession.shared.data(for: request)
                     if let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) {
-                        if reportStatus { webhookStatus = "Delivered (HTTP \(http.statusCode))" }
+                        if reportStatus { webhookStatus = "\(L10n.text("webhookDelivered", language)) (HTTP \(http.statusCode))" }
                         return
                     }
                 } catch { }
-                if attempt < 2 { try? await Task.sleep(for: .seconds(1 << attempt)) }
+                if attempt < 2, !Task.isCancelled { try? await Task.sleep(for: .seconds(1 << attempt)) }
             }
-            if reportStatus { webhookStatus = "Failed after 3 attempts" }
+            if reportStatus { webhookStatus = L10n.text("webhookFailed", language) }
         }
     }
 

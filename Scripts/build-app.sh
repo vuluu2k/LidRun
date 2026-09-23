@@ -8,6 +8,7 @@ APP="${APP_OUTPUT:-$PWD/.build/LidRun Personal.app}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 swift build -c "$CONFIGURATION" --product lidrun-personal
+swift build -c "$CONFIGURATION" --product apprun
 BIN="$PWD/.build/$CONFIGURATION/lidrun-personal"
 CONTENTS="$APP/Contents"
 MACOS="$CONTENTS/MacOS"
@@ -15,6 +16,7 @@ MACOS="$CONTENTS/MacOS"
 rm -rf "$APP"
 mkdir -p "$MACOS" "$CONTENTS/Resources"
 cp "$BIN" "$MACOS/LidRun"
+cp "$PWD/.build/$CONFIGURATION/apprun" "$MACOS/apprun"
 ICONSET="$PWD/.build/AppIcon.iconset"
 rm -rf "$ICONSET"
 swift Scripts/make-icon.swift "$ICONSET"

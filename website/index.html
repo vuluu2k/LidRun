@@ -6,15 +6,29 @@
   <meta name="description" content="LidRun Personal keeps long-running work awake on macOS with local automation and safety guardrails. Free and open source.">
   <meta name="theme-color" content="#171316">
   <title>LidRun Personal — Keep work running on macOS</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://vuluu2k.github.io/LidRun/">
+  <meta property="og:title" content="LidRun Personal — Keep work running on macOS">
+  <meta property="og:description" content="Keep your Mac awake for AI &amp; dev work — even with the lid closed. Free &amp; open source.">
+  <meta property="og:image" content="https://vuluu2k.github.io/LidRun/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="LidRun Personal — Keep work running on macOS">
+  <meta name="twitter:description" content="Keep your Mac awake for AI &amp; dev work — even with the lid closed. Free &amp; open source.">
+  <meta name="twitter:image" content="https://vuluu2k.github.io/LidRun/og.png">
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
 </head>
 <body>
   <header class="nav wrap">
-    <a class="brand" href="#top" aria-label="LidRun Personal home"><span class="brand-mark">◒</span>LidRun Personal</a>
+    <a class="brand" href="#top" aria-label="LidRun Personal home"><img class="brand-mark" src="favicon.svg" alt="" width="32" height="32">LidRun Personal</a>
     <nav>
       <a href="#features" data-i18n="navFeatures">Tính năng</a>
       <a href="#install" data-i18n="navInstall">Cài đặt</a>
+      <a href="#donate" data-i18n="navDonate">Ủng hộ</a>
       <a id="source-link" hidden data-i18n="source">Mã nguồn</a>
       <button id="language" type="button" aria-label="Switch language">EN</button>
     </nav>
@@ -144,6 +158,22 @@
       <details><summary data-i18n="q4">LidRun Personal có liên quan tới lidrun.com không?</summary><p data-i18n="a4">Không. Đây là dự án mã nguồn mở độc lập, không liên kết với sản phẩm thương mại LidRun tại lidrun.com. App được đổi tên thành “LidRun Personal” để tránh nhầm lẫn.</p></details>
     </section>
 
+    <section id="donate" class="section wrap donate">
+      <p class="eyebrow" data-i18n="donateEye">ỦNG HỘ DỰ ÁN</p>
+      <h2 data-i18n="donateTitle">Miễn phí mãi mãi. Ủng hộ nếu thấy hữu ích.</h2>
+      <p class="donate-note" data-i18n="donateBody">LidRun Personal luôn miễn phí và mã nguồn mở, không có bản trả phí. Khoản ủng hộ giúp mình có thêm thời gian phát triển và dành dụm cho tài khoản Apple Developer ($99/năm) để app được notarize, cài đặt không còn cảnh báo Gatekeeper.</p>
+      <div class="donate-grid">
+        <a id="donate-github" class="donate-card" hidden target="_blank" rel="noopener"><b>GitHub Sponsors</b><span data-i18n="donateGithub">Ủng hộ một lần hoặc hằng tháng</span></a>
+        <a id="donate-coffee" class="donate-card" hidden target="_blank" rel="noopener"><b>Buy Me a Coffee</b><span data-i18n="donateCoffee">Mời mình một ly cà phê</span></a>
+        <div id="donate-vietqr" class="donate-card donate-qr" hidden>
+          <img width="200" height="200" loading="lazy">
+          <div><b data-i18n="donateBank">Chuyển khoản ngân hàng (VietQR)</b>
+            <span><span data-i18n="donateAccount">Số tài khoản</span>: <code class="qr-account"></code></span>
+            <span><span data-i18n="donateHolder">Chủ tài khoản</span>: <code class="qr-name"></code></span></div>
+        </div>
+      </div>
+    </section>
+
     <section class="cta wrap">
       <h2 data-i18n="ctaTitle">Đừng để một lần sleep làm mất cả phiên chạy.</h2>
       <a class="button primary download-link" href="https://statics.pancake.vn/web-media-263/d0/d6/57/31/a46f8c594ebd3453fd5e086bce131dd4483f69cf17abad4ffa3c5e50.dmg" data-i18n="download">Tải LidRun miễn phí</a>
@@ -151,6 +181,6 @@
     </section>
   </main>
 
-  <footer class="wrap"><span>© <span id="year"></span> LidRun Personal · <a href="https://github.com/vuluu2k/LidRun/blob/main/LICENSE">MIT License</a></span><span data-i18n="footer">Built for long-running work.</span></footer>
+  <footer class="wrap"><span>© <span id="year"></span> LidRun Personal · <a href="https://github.com/vuluu2k/LidRun/blob/main/LICENSE">MIT License</a> · <a href="#donate" data-i18n="navDonate">Ủng hộ</a></span><span data-i18n="footer">Built for long-running work.</span></footer>
 </body>
 </html>

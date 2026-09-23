@@ -17,12 +17,15 @@ public struct SessionState: Equatable, Sendable {
     public var whyAwake: String
     public var nextRelease: String
     public var startedAt: Date?
+    /// When a timed session ends on its own; nil for open-ended sessions.
+    public var releaseAt: Date?
 
-    public init(isActive: Bool, whyAwake: String, nextRelease: String, startedAt: Date? = nil) {
+    public init(isActive: Bool, whyAwake: String, nextRelease: String, startedAt: Date? = nil, releaseAt: Date? = nil) {
         self.isActive = isActive
         self.whyAwake = whyAwake
         self.nextRelease = nextRelease
         self.startedAt = startedAt
+        self.releaseAt = releaseAt
     }
 }
 
@@ -81,7 +84,8 @@ public final class SessionController: @unchecked Sendable {
             isActive: true,
             whyAwake: reason,
             nextRelease: duration.map { "Timer: \(Self.format(duration: $0))" } ?? "Manual stop",
-            startedAt: now
+            startedAt: now,
+            releaseAt: duration.map { now.addingTimeInterval($0) }
         )
         try log.append(RunEvent(time: now, type: .started, reason: reason))
         scheduleTimer(duration)
@@ -91,7 +95,7 @@ public final class SessionController: @unchecked Sendable {
     private func scheduleTimer(_ duration: TimeInterval?) {
         guard let duration else { return }
         let source = DispatchSource.makeTimerSource(queue: .main)
-        source.schedule(deadline: .now() + duration)
+        source.schedule(wallDeadline: .now() + duration)  // wall clock: an uptime deadline pauses while the Mac sleeps
         source.setEventHandler { [weak self] in self?.stop(reason: .timerExpired) }
         source.resume()
         timer = source

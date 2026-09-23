@@ -64,8 +64,13 @@ final class LidRunAppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegat
         [.banner, .sound]
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        model.shutdown()
+    // terminateLater lets shutdown deliver the "stopped" webhook before the process exits.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task {
+            await model.shutdown()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func popoverDidShow(_ notification: Notification) { model.setPanelVisible(true) }

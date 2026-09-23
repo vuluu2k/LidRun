@@ -73,7 +73,7 @@ struct LidRunView: View {
                 .background(Color.indigo.opacity(0.22), in: RoundedRectangle(cornerRadius: 9))
             VStack(alignment: .leading, spacing: 2) {
                 Text("LidRun").font(.system(size: 14, weight: .bold))
-                Text(model.session.isActive ? model.session.whyAwake : t("ready"))
+                Text(model.session.isActive ? model.whyAwakeText : t("ready"))
                     .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
@@ -127,7 +127,7 @@ struct LidRunView: View {
                 ForEach([30, 60, 120, 240, 480], id: \.self) { value in
                     Button(value < 60 ? "\(value) min" : "\(value / 60)h") { model.startTimer(minutes: value) }
                 }
-            } label: { actionRow(t("timer"), "timer", .secondary, model.session.nextRelease, true) }
+            } label: { actionRow(t("timer"), "timer", .secondary, model.nextReleaseText, true) }
                 .menuStyle(.button)
                 .buttonStyle(.plain)
                 .frame(height: 31)
@@ -168,7 +168,7 @@ struct LidRunView: View {
         VStack(spacing: 0) {
             navRow(t("status"), "gauge.with.dots.needle.33percent", model.session.isActive ? t("protected") : t("idle")) {}
             navRow(t("tasksReports"), "list.bullet.clipboard", "›") { showReport = true }
-            navRow(t("notifications"), "bell", model.alertsEnabled ? "On" : "›") { showAlerts = true }
+            navRow(t("notifications"), "bell", model.alertsEnabled ? t("On") : "›") { showAlerts = true }
         }
     }
 
@@ -191,9 +191,14 @@ struct LidRunView: View {
     private var report: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top) { stat(t("protectedTime"), model.protectedTimeText); stat(t("sessions"), "\(model.protectedSessions)"); stat(t("safetyStops"), "\(model.safetyStops)") }
-            ForEach(Array(model.weeklyEvents.suffix(3).reversed()), id: \.time) { event in
-                HStack { Text(event.type.rawValue.capitalized); Text(event.reason).lineLimit(1); Spacer() }
-                    .font(.system(size: 9)).foregroundStyle(.secondary)
+            ForEach(model.recentSessions) { run in
+                HStack(spacing: 6) {
+                    Text(run.id.formatted(date: .abbreviated, time: .shortened)).frame(width: 92, alignment: .leading)
+                    Text(duration(run.duration)).frame(width: 40, alignment: .leading)
+                    Text(run.reason + (run.stopReason.map { " → \($0)" } ?? " · \(t("running"))")).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .font(.system(size: 9)).foregroundStyle(.secondary)
             }
             Button(t("copyReport")) {
                 NSPasteboard.general.clearContents(); NSPasteboard.general.setString(model.weeklyReport, forType: .string)
@@ -201,6 +206,11 @@ struct LidRunView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(9)
         .background(Color.black.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func duration(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds) / 60
+        return minutes >= 60 ? "\(minutes / 60)h\(minutes % 60)m" : "\(minutes)m"
     }
 
     private func stat(_ title: String, _ value: String) -> some View {
@@ -213,7 +223,7 @@ struct LidRunView: View {
             Text(t("notificationHelp")).font(.caption).foregroundStyle(.secondary)
             toggleRow(t("macAlerts"), "bell.badge", .orange, Binding(get: { model.alertsEnabled }, set: { model.setAlerts($0) }), "")
             HStack {
-                Text(model.notificationStatus).font(.caption).foregroundStyle(.secondary)
+                Text(t(model.notificationStatus)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if model.notificationStatus == "Denied" {
                     Button(t("openSystemSettings")) { model.openNotificationSettings() }.controlSize(.small)
@@ -242,12 +252,21 @@ struct LidRunView: View {
             HStack {
                 Text(t("hotkeys")).font(.caption)
                 Spacer()
-                Text(model.hotKeysReady ? "Ready" : "Unavailable").font(.caption).foregroundStyle(model.hotKeysReady ? .green : .red)
+                Text(t(model.hotKeysReady ? "hotkeysReady" : "Unavailable")).font(.caption).foregroundStyle(model.hotKeysReady ? .green : .red)
             }
             Text(t("hotkeysHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
             settingPicker(t("language"), selection: Binding(get: { model.language.rawValue }, set: { model.setLanguage(AppLanguage(rawValue: $0) ?? .english) }), values: [("en", "English"), ("vi", "Tiếng Việt")])
-            settingPicker(t("lowBattery"), selection: Binding(get: { model.lowBatteryPercent ?? 0 }, set: { model.setLowBattery($0 == 0 ? nil : $0) }), values: [(0, "Off"), (5, "5%"), (10, "10%"), (15, "15%")])
-            settingPicker(t("watchdog"), selection: Binding(get: { model.watchdogMinutes ?? 0 }, set: { model.setWatchdog(minutes: $0 == 0 ? nil : $0) }), values: [(0, "Off"), (60, "1h"), (240, "4h"), (480, "8h")])
+            settingPicker(t("lowBattery"), selection: Binding(get: { model.lowBatteryPercent ?? 0 }, set: { model.setLowBattery($0 == 0 ? nil : $0) }), values: [(0, t("Off")), (5, "5%"), (10, "10%"), (15, "15%")])
+            settingPicker(t("watchdog"), selection: Binding(get: { model.watchdogMinutes ?? 0 }, set: { model.setWatchdog(minutes: $0 == 0 ? nil : $0) }), values: [(0, t("Off")), (60, "1h"), (240, "4h"), (480, "8h")])
+            HStack {
+                Text(t("commandLineTool")).font(.caption)
+                Spacer()
+                if model.commandLineToolInstalled {
+                    Text(t("installed")).font(.caption).foregroundStyle(.green)
+                } else {
+                    Button(t("install")) { model.installCommandLineTool() }.controlSize(.mini)
+                }
+            }
             toggleRow(t("extendedDetection"), "sparkle.magnifyingglass", .white, Binding(get: { model.extendedDetection }, set: { model.setExtendedDetection($0) }), "")
             HStack {
                 Text(t("closedLidHelper")).font(.caption)

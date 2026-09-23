@@ -20,11 +20,35 @@ const copy = {
     q2:'Why does macOS warn on first launch?', a2:'The free build is not notarized with a paid Apple Developer account. Use the Terminal install command, or System Settings → Privacy &amp; Security → Open Anyway once.',
     q3:'Does Closed-Lid work on every Mac?', a3:'Out of the box, Closed-Lid needs the charger because that is what macOS allows. To run on battery with the lid shut, turn on Full Closed-Lid in Settings. Either way, keep the vents clear, never put a running Mac in a bag, and test with non-critical work first.',
     q4:'Is LidRun Personal related to lidrun.com?', a4:'No. This is an independent open-source project, not affiliated with the commercial LidRun at lidrun.com. The app was renamed “LidRun Personal” to avoid confusion.',
+    navDonate:'Sponsor', donateEye:'SUPPORT THE PROJECT', donateTitle:'Free forever. Chip in if it helps.',
+    donateBody:'LidRun Personal will always be free and open source, with no paid tier. Donations buy development time and go toward an Apple Developer account ($99/year) so the app can be notarized and install without Gatekeeper warnings.',
+    donateGithub:'One-time or monthly', donateCoffee:'A small one-time tip', donateBank:'Bank transfer (VietQR)', donateAccount:'Account', donateHolder:'Account holder',
     ctaTitle:'Do not let one sleep event end a long-running job.', footer:'Built for long-running work.',
     panelReady:'Ready', panelCharging:'Charging', panelAutoMode:'Auto Mode', panelKeepAwake:'Keep Awake', panelChargingOnly:'Only When Charging', panelTimer:'Timer', panelClosedLid:'Closed-Lid Mode', panelCooling:'Cooling', panelStop:'Stop',
     panelStatus:'Status', panelProtected:'Protected', panelTasks:'Tasks &amp; Reports', panelNotifications:'Notifications &amp; Webhooks', panelSettings:'Settings', panelQuit:'Quit LidRun', panelUpdate:'Update to v0.1.15'
   }
 };
+
+// Donation channels: a card shows only when its value is filled in.
+const donate = { github: 'https://github.com/sponsors/vuluu2k', coffee: 'https://buymeacoffee.com/vuluu04032j', vietqr: { bank: '', account: '', name: '' } };
+function renderDonate() {
+  const { github, coffee, vietqr } = donate;
+  const qr = vietqr.bank && vietqr.account && vietqr.name;
+  const card = (id, on) => Object.assign(document.querySelector(id), { hidden: !on });
+  card('#donate-github', github).href = github;
+  card('#donate-coffee', coffee).href = coffee;
+  const qrCard = card('#donate-vietqr', qr);
+  if (qr) {
+    Object.assign(qrCard.querySelector('img'), {
+      src: `https://img.vietqr.io/image/${encodeURIComponent(vietqr.bank)}-${encodeURIComponent(vietqr.account)}-compact2.png?accountName=${encodeURIComponent(vietqr.name)}`,
+      alt: `VietQR ${vietqr.bank} ${vietqr.account} ${vietqr.name}`
+    });
+    qrCard.querySelector('.qr-account').textContent = vietqr.account;
+    qrCard.querySelector('.qr-name').textContent = vietqr.name;
+  }
+  document.querySelector('#donate').hidden = !(github || coffee || qr);
+}
+renderDonate();
 
 let language = localStorage.getItem('lidrun-language') || 'vi';
 const original = Object.fromEntries([...document.querySelectorAll('[data-i18n]')].map(el => [el.dataset.i18n, el.innerHTML]));

@@ -19,6 +19,8 @@ swift run apprun -- /bin/sleep 30
 swift run apprun -- docker build .
 ```
 
+The app bundle ships `apprun`; Settings → Command line tool → Install links it to `/usr/local/bin/apprun` (one admin prompt). From source you can also use `swift run apprun`.
+
 `apprun` holds the awake assertion until the command exits and returns the same exit code. It uses the app's charging-only, low-battery and thermal settings, and posts a `command_finished` webhook when one is configured. Add `--sleep` to put the Mac to sleep when the command finishes:
 
 ```bash
