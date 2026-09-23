@@ -44,8 +44,25 @@ if (github) {
   source.hidden = false;
 }
 
+let currentRelease = { version: '0.1.0' };
 fetch('download.json').then(r => r.ok ? r.json() : Promise.reject()).then(release => {
+  currentRelease = release;
   document.querySelectorAll('.download-link').forEach(link => link.href = release.url);
   document.querySelector('#version').textContent = `v${release.version}`;
   document.querySelector('#checksum').textContent = release.sha256;
 }).catch(() => {});
+
+document.querySelectorAll('.download-link').forEach(link => link.addEventListener('click', async event => {
+  event.preventDefault();
+  try {
+    const response = await fetch(link.href);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const temporaryLink = document.createElement('a');
+    temporaryLink.href = URL.createObjectURL(await response.blob());
+    temporaryLink.download = `LidRun-${currentRelease.version}-unsigned.dmg`;
+    temporaryLink.click();
+    setTimeout(() => URL.revokeObjectURL(temporaryLink.href), 1000);
+  } catch {
+    location.href = link.href;
+  }
+}));
