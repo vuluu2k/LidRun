@@ -324,6 +324,23 @@ struct LidRunView: View {
                 Button(t("sendTestPush")) { model.saveNtfyTopic(ntfyDraft); model.sendTestPush() }.controlSize(.small).disabled(ntfyDraft.isEmpty)
             }
             Divider()
+            Text(t("pushFiltersHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
+            toggleRow(t("pushIdleAgent"), "hourglass", .white, Binding(get: { model.idleAgentAlerts }, set: { model.setPushFilters(idleAgent: $0) }), "")
+            toggleRow(t("pushBattery"), "battery.25percent", .orange, Binding(get: { model.batteryAlerts }, set: { model.setPushFilters(battery: $0) }), "")
+            toggleRow(t("pushJobs"), "list.number", .white, Binding(get: { model.jobAlerts }, set: { model.setPushFilters(jobs: $0) }), "")
+            toggleRow(t("pushWindow"), "moon.zzz", .white, Binding(get: { model.pushWindowEnabled }, set: { model.setPushFilters(window: $0) }), "")
+            if model.pushWindowEnabled {
+                HStack {
+                    Picker(t("from"), selection: Binding(get: { model.pushStartHour }, set: { model.setPushFilters(startHour: $0) })) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                    Picker(t("to"), selection: Binding(get: { model.pushEndHour }, set: { model.setPushFilters(endHour: $0) })) {
+                        ForEach(0..<24, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+                    }
+                }
+                .controlSize(.small).font(.caption)
+            }
+            Divider()
             TextField(t("webhook"), text: $webhookDraft).textFieldStyle(.roundedBorder).controlSize(.small)
             HStack { Text(t("detectedPlatform")); Spacer(); Text(model.webhookPlatform(for: webhookDraft)) }
                 .font(.caption).foregroundStyle(.secondary)

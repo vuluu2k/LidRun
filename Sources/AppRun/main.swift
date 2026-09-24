@@ -9,7 +9,8 @@ let settings = AppSettings(defaults: settingsDefaults)
 
 /// Webhook plus ntfy phone push, both from the app's settings. Blocks until sent (10 s cap each).
 func notify(title: String, body: String, event: String) {
-    var requests = [Ntfy.request(topic: settings.ntfyTopic, title: title, message: body)].compactMap { $0 }
+    let allowed = settings.allowsPush(event: event)
+    var requests = [allowed ? Ntfy.request(topic: settings.ntfyTopic, title: title, message: body) : nil].compactMap { $0 }
     if let url = URL(string: settings.webhookURL), !settings.webhookURL.isEmpty {
         var request = URLRequest(url: url, timeoutInterval: 10)
         request.httpMethod = "POST"

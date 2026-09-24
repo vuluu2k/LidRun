@@ -61,3 +61,22 @@ private func freshDefaults() -> UserDefaults {
     #expect(Ntfy.request(topic: "https://ntfy.example.com/x", title: "t", message: "m")?.url?.absoluteString == "https://ntfy.example.com/x")
     #expect(Ntfy.request(topic: "", title: "t", message: "m") == nil)
 }
+
+@Test func pushFiltersRespectTogglesAndWindow() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "UTC")!
+    let night = Date(timeIntervalSince1970: 2 * 3600)   // 02:00 UTC
+    let day = Date(timeIntervalSince1970: 10 * 3600)    // 10:00 UTC
+    var settings = AppSettings()
+    #expect(settings.allowsPush(event: "agent_idle", now: night, calendar: calendar))
+
+    settings.idleAgentAlerts = false
+    #expect(!settings.allowsPush(event: "agent_idle", now: day, calendar: calendar))
+
+    settings.pushWindowEnabled = true   // 07:00–23:00
+    #expect(settings.allowsPush(event: "command_finished", now: day, calendar: calendar))
+    #expect(!settings.allowsPush(event: "command_finished", now: night, calendar: calendar))
+    #expect(settings.allowsPush(event: "battery_warning", now: night, calendar: calendar))   // safety ignores the window
+    settings.batteryAlerts = false
+    #expect(!settings.allowsPush(event: "battery_warning", now: night, calendar: calendar))
+}

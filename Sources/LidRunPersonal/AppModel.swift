@@ -42,6 +42,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var queueJobs: [String] = []
     @Published private(set) var queueRunning: String?
     @Published private(set) var queuePaused = false
+    /// Push/alert filters (see AppSettings.allowsPush).
+    @Published private(set) var idleAgentAlerts = true
+    @Published private(set) var batteryAlerts = true
+    @Published private(set) var jobAlerts = true
+    @Published private(set) var pushWindowEnabled = false
+    @Published private(set) var pushStartHour = 7
+    @Published private(set) var pushEndHour = 23
     @Published private var now = Date()
 
     private let controller = SessionController()
@@ -386,6 +393,16 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: Phone push (ntfy)
+
+    func setPushFilters(idleAgent: Bool? = nil, battery: Bool? = nil, jobs: Bool? = nil, window: Bool? = nil, startHour: Int? = nil, endHour: Int? = nil) {
+        if let idleAgent { idleAgentAlerts = idleAgent }
+        if let battery { batteryAlerts = battery }
+        if let jobs { jobAlerts = jobs }
+        if let window { pushWindowEnabled = window }
+        if let startHour { pushStartHour = startHour }
+        if let endHour { pushEndHour = endHour }
+        saveSettings()
+    }
 
     func saveNtfyTopic(_ value: String) { ntfyTopic = value.trimmingCharacters(in: .whitespacesAndNewlines); saveSettings() }
 
@@ -754,14 +771,15 @@ final class AppModel: ObservableObject {
 
     @discardableResult
     private func publish(title: String, body: String, event: String, reportWebhookStatus: Bool = false) -> Task<Void, Never>? {
-        if alertsEnabled {
+        let allowed = settings.allowsPush(event: event)
+        if alertsEnabled, allowed {
             let content = UNMutableNotificationContent()
             content.title = title
             content.body = body
             UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
         // Phone pushes are for outcomes (finished, safety stop, heat), not every start.
-        let push = event == "started" ? nil : Ntfy.request(topic: ntfyTopic, title: title, message: body).map { request in
+        let push = event == "started" || !allowed ? nil : Ntfy.request(topic: ntfyTopic, title: title, message: body).map { request in
             Task { _ = try? await URLSession.shared.data(for: request) }
         }
         guard let url = URL(string: webhookURL), !webhookURL.isEmpty else { return push }
@@ -820,6 +838,12 @@ final class AppModel: ObservableObject {
         scheduleStartHour = settings.scheduleStartHour
         scheduleEndHour = settings.scheduleEndHour
         sleepWhenWatchEnds = settings.sleepWhenWatchEnds
+        idleAgentAlerts = settings.idleAgentAlerts
+        batteryAlerts = settings.batteryAlerts
+        jobAlerts = settings.jobAlerts
+        pushWindowEnabled = settings.pushWindowEnabled
+        pushStartHour = settings.pushStartHour
+        pushEndHour = settings.pushEndHour
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
@@ -842,6 +866,12 @@ final class AppModel: ObservableObject {
         settings.scheduleStartHour = scheduleStartHour
         settings.scheduleEndHour = scheduleEndHour
         settings.sleepWhenWatchEnds = sleepWhenWatchEnds
+        settings.idleAgentAlerts = idleAgentAlerts
+        settings.batteryAlerts = batteryAlerts
+        settings.jobAlerts = jobAlerts
+        settings.pushWindowEnabled = pushWindowEnabled
+        settings.pushStartHour = pushStartHour
+        settings.pushEndHour = pushEndHour
         return settings
     }
 

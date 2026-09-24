@@ -144,6 +144,11 @@ enum L10n {
         "batterySoonBody": [.english: "At this drain the battery runs low at about %@. Plug in the charger to keep going.", .vietnamese: "Với tốc độ tụt pin hiện tại, pin sẽ cạn vào khoảng %@. Hãy cắm sạc để chạy tiếp."],
         "agentIdleTitle": [.english: "Agent looks stuck", .vietnamese: "Agent có vẻ đang kẹt"],
         "agentIdleBody": [.english: "%@ has been idle for 15 minutes — it may be waiting for your answer or permission.", .vietnamese: "%@ đã đứng im 15 phút — có thể đang chờ bạn trả lời hoặc cấp quyền."],
+        "pushFiltersHelp": [.english: "What reaches your phone and macOS alerts. Webhooks still get every event; heat warnings always go through.", .vietnamese: "Chọn thông báo nào gửi lên điện thoại và macOS. Webhook vẫn nhận mọi sự kiện; cảnh báo nhiệt luôn được gửi."],
+        "pushIdleAgent": [.english: "Agent looks stuck", .vietnamese: "Agent có vẻ bị kẹt"],
+        "pushBattery": [.english: "Battery won't last", .vietnamese: "Pin không đủ"],
+        "pushJobs": [.english: "Job & command results", .vietnamese: "Kết quả job & lệnh"],
+        "pushWindow": [.english: "Only notify between", .vietnamese: "Chỉ thông báo trong khung giờ"],
         "notRunning": [.english: "Idle", .vietnamese: "Nghỉ"],
         "safetyNote": [.english: "Public macOS power APIs cannot override every hardware sleep decision. Keep vents clear.", .vietnamese: "API nguồn công khai của macOS không thể ghi đè mọi quyết định sleep của phần cứng. Luôn giữ khe tản nhiệt thông thoáng."],
     ]

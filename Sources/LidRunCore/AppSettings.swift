@@ -22,6 +22,14 @@ public struct AppSettings: Equatable, Sendable {
     public var scheduleStartHour = 1
     public var scheduleEndHour = 7
     public var sleepWhenWatchEnds = false
+    /// Which pushes/alerts to send; webhooks always get every event.
+    public var idleAgentAlerts = true
+    public var batteryAlerts = true
+    public var jobAlerts = true
+    /// Only push inside this local window (e.g. 7→23); heat and battery warnings always go through.
+    public var pushWindowEnabled = false
+    public var pushStartHour = 7
+    public var pushEndHour = 23
 
     public init() {}
 
@@ -45,6 +53,12 @@ public struct AppSettings: Equatable, Sendable {
         scheduleStartHour = defaults.object(forKey: "scheduleStartHour") as? Int ?? fallback.scheduleStartHour
         scheduleEndHour = defaults.object(forKey: "scheduleEndHour") as? Int ?? fallback.scheduleEndHour
         sleepWhenWatchEnds = defaults.bool(forKey: "sleepWhenWatchEnds")
+        idleAgentAlerts = defaults.object(forKey: "idleAgentAlerts") as? Bool ?? fallback.idleAgentAlerts
+        batteryAlerts = defaults.object(forKey: "batteryAlerts") as? Bool ?? fallback.batteryAlerts
+        jobAlerts = defaults.object(forKey: "jobAlerts") as? Bool ?? fallback.jobAlerts
+        pushWindowEnabled = defaults.bool(forKey: "pushWindowEnabled")
+        pushStartHour = defaults.object(forKey: "pushStartHour") as? Int ?? fallback.pushStartHour
+        pushEndHour = defaults.object(forKey: "pushEndHour") as? Int ?? fallback.pushEndHour
     }
 
     public func save(to defaults: UserDefaults) {
@@ -65,6 +79,25 @@ public struct AppSettings: Equatable, Sendable {
         defaults.set(scheduleStartHour, forKey: "scheduleStartHour")
         defaults.set(scheduleEndHour, forKey: "scheduleEndHour")
         defaults.set(sleepWhenWatchEnds, forKey: "sleepWhenWatchEnds")
+        defaults.set(idleAgentAlerts, forKey: "idleAgentAlerts")
+        defaults.set(batteryAlerts, forKey: "batteryAlerts")
+        defaults.set(jobAlerts, forKey: "jobAlerts")
+        defaults.set(pushWindowEnabled, forKey: "pushWindowEnabled")
+        defaults.set(pushStartHour, forKey: "pushStartHour")
+        defaults.set(pushEndHour, forKey: "pushEndHour")
+    }
+
+    /// Whether an event may reach the phone (ntfy) and macOS alerts. Webhooks are not filtered.
+    public func allowsPush(event: String, now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        switch event {
+        case "test", "thermal_warning": return true
+        case "battery_warning": return batteryAlerts
+        case "agent_idle": if !idleAgentAlerts { return false }
+        case "command_finished", "queue_finished": if !jobAlerts { return false }
+        default: break
+        }
+        guard pushWindowEnabled else { return true }
+        return Schedule.activeUntil(now: now, startHour: pushStartHour, endHour: pushEndHour, calendar: calendar) != nil
     }
 
     public var guardrailPolicy: GuardrailPolicy {
