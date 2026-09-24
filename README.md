@@ -27,6 +27,33 @@ The app bundle ships `apprun`; Settings → Command line tool → Install links 
 apprun --sleep -- ./train.sh
 ```
 
+### Overnight agent queue
+
+Queue jobs, then run them one after another. The Mac stays awake until the queue is empty, each result is pushed to your phone (ntfy) and webhook, and a guardrail stop (low battery, heat) pauses the queue with the remaining jobs kept:
+
+```bash
+apprun queue add -- claude -p "implement docs/plan.md step 1, run tests"
+apprun queue add -- claude -p "implement docs/plan.md step 2, run tests"
+apprun queue              # list
+apprun --sleep queue run  # sleep when done
+```
+
+The queue is a plain file (`~/Library/Application Support/LidRunPersonal/queue.txt`, one shell command per line) you can edit by hand. Ctrl-C stops the queue.
+
+### Push when an agent is stuck
+
+An agent waiting for a permission or an answer sits idle all night. Add this to `~/.claude/settings.json` to get a phone push instead:
+
+```json
+{
+  "hooks": {
+    "Notification": [{ "hooks": [{ "type": "command", "command": "apprun notify 'Claude needs you'" }] }]
+  }
+}
+```
+
+`apprun notify [title]` reads the hook JSON on stdin and sends `project: message`.
+
 ## Build a free DMG
 
 ```bash
