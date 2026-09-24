@@ -32,6 +32,61 @@ public struct JobQueue: Sendable {
 
     public func clear() throws { try save([]) }
 
+    // MARK: Runner state, shared with the menu bar app through small files next to the queue
+
+    private var directory: URL { url.deletingLastPathComponent() }
+    private var pausedFlag: URL { directory.appendingPathComponent("queue.paused") }
+    private var runningFile: URL { directory.appendingPathComponent("queue.running") }
+    public var logDirectory: URL { directory.appendingPathComponent("logs", isDirectory: true) }
+
+    /// A paused queue finishes its current job, then waits before starting the next one.
+    public var isPaused: Bool { FileManager.default.fileExists(atPath: pausedFlag.path) }
+
+    public func setPaused(_ paused: Bool) {
+        if paused {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: pausedFlag.path, contents: nil)
+        } else {
+            try? FileManager.default.removeItem(at: pausedFlag)
+        }
+    }
+
+    /// Records the job a runner (`pid`) is on; nil clears it.
+    public func setRunning(_ job: String?, pid: Int32 = getpid()) {
+        guard let job else { try? FileManager.default.removeItem(at: runningFile); return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? "\(pid)\n\(job)".write(to: runningFile, atomically: true, encoding: .utf8)
+    }
+
+    /// The job being run right now, ignoring a marker left by a runner that was killed.
+    public func running() -> String? {
+        guard let text = try? String(contentsOf: runningFile, encoding: .utf8) else { return nil }
+        let parts = text.split(separator: "\n", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let pid = Int32(parts[0]), kill(pid, 0) == 0 else { return nil }
+        return parts[1]
+    }
+
+    /// A fresh log file for one job; keeps the newest `keep` logs.
+    public func newLog(for job: String, now: Date = Date(), keep: Int = 50) -> URL {
+        let manager = FileManager.default
+        try? manager.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        let old = ((try? manager.contentsOfDirectory(at: logDirectory, includingPropertiesForKeys: nil)) ?? [])
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+        old.dropFirst(max(0, keep - 1)).forEach { try? manager.removeItem(at: $0) }
+        // UTC so names sort in time order across DST/travel; the pid keeps same-second jobs apart.
+        let stamp = ISO8601DateFormatter.string(from: now, timeZone: .gmt, formatOptions: [.withFullDate, .withTime])
+        let slug = String(job.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "-" }.prefix(40))
+        return logDirectory.appendingPathComponent("\(stamp)-\(getpid())-\(slug).log")
+    }
+
+    /// The last `lines` non-empty lines of a log, capped for a phone push.
+    public static func tail(of log: URL, lines: Int = 5, maxLength: Int = 600) -> String {
+        guard let data = try? Data(contentsOf: log) else { return "" }
+        let text = String(decoding: data, as: UTF8.self)
+        let last = text.split(separator: "\n").suffix(lines).joined(separator: "\n")
+        return last.count > maxLength ? "…" + last.suffix(maxLength) : last
+    }
+
     private func save(_ jobs: [String]) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try (jobs.map { $0 + "\n" }.joined()).write(to: url, atomically: true, encoding: .utf8)

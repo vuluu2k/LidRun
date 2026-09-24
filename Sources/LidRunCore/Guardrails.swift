@@ -24,11 +24,14 @@ public struct GuardrailSnapshot: Equatable, Sendable {
     public var isCharging: Bool
     public var batteryPercent: Int?
     public var thermalPressure: ThermalPressure
+    /// macOS's own battery time-to-empty estimate; nil on AC power or while it is still calculating.
+    public var secondsToEmpty: TimeInterval?
 
-    public init(isCharging: Bool, batteryPercent: Int?, thermalPressure: ThermalPressure) {
+    public init(isCharging: Bool, batteryPercent: Int?, thermalPressure: ThermalPressure, secondsToEmpty: TimeInterval? = nil) {
         self.isCharging = isCharging
         self.batteryPercent = batteryPercent
         self.thermalPressure = thermalPressure
+        self.secondsToEmpty = secondsToEmpty
     }
 }
 
@@ -68,8 +71,14 @@ public struct SystemGuardrailReader: GuardrailReading {
         return GuardrailSnapshot(
             isCharging: powerSource == kIOPSACPowerValue,
             batteryPercent: Self.batteryPercent(info),
-            thermalPressure: ProcessInfo.processInfo.thermalState.guardrailPressure
+            thermalPressure: ProcessInfo.processInfo.thermalState.guardrailPressure,
+            secondsToEmpty: Self.secondsToEmpty()
         )
+    }
+
+    private static func secondsToEmpty() -> TimeInterval? {
+        let estimate = IOPSGetTimeRemainingEstimate()
+        return estimate > 0 ? estimate : nil  // -1 unknown, -2 unlimited (on AC)
     }
 
     private static func batteryPercent(_ info: CFTypeRef) -> Int? {

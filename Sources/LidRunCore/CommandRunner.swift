@@ -27,13 +27,33 @@ public final class CommandRunner: @unchecked Sendable {
         self.guardrails = guardrails
     }
 
-    public func run(executable: String, arguments: [String], policy: GuardrailPolicy = GuardrailPolicy()) throws -> CommandResult {
+    /// With `outputLog`, stdout and stderr are also copied to that file (the command then sees a pipe, not a terminal).
+    public func run(executable: String, arguments: [String], policy: GuardrailPolicy = GuardrailPolicy(), outputLog: URL? = nil) throws -> CommandResult {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
         process.standardInput = FileHandle.standardInput
         process.standardOutput = FileHandle.standardOutput
         process.standardError = FileHandle.standardError
+        let copied = DispatchGroup()
+        var pipe: Pipe?
+        if let outputLog, FileManager.default.createFile(atPath: outputLog.path, contents: nil),
+           let file = try? FileHandle(forWritingTo: outputLog) {
+            let output = Pipe()
+            process.standardOutput = output
+            process.standardError = output
+            pipe = output
+            copied.enter()
+            DispatchQueue.global().async {
+                while let data = try? output.fileHandleForReading.read(upToCount: 65_536), !data.isEmpty {
+                    // Throwing writes: a closed terminal or full disk must not crash apprun mid-job.
+                    try? FileHandle.standardOutput.write(contentsOf: data)
+                    try? file.write(contentsOf: data)
+                }
+                try? file.close()
+                copied.leave()
+            }
+        }
 
         let command = ([executable] + arguments).joined(separator: " ")
         let startedAt = Date()
@@ -42,7 +62,10 @@ public final class CommandRunner: @unchecked Sendable {
 
         do {
             try process.run()
+            // Only the child may hold the write end, or the copy loop never sees end-of-file.
+            try? pipe?.fileHandleForWriting.close()
         } catch {
+            try? pipe?.fileHandleForWriting.close()
             assertion.release()
             try? log.append(RunEvent(type: .stopped, reason: "command launch failed: \(error)"))
             throw error
@@ -57,7 +80,11 @@ public final class CommandRunner: @unchecked Sendable {
             source.resume()
             return source
         }
-        defer { forwarders.forEach { $0.cancel() } }
+        defer {
+            forwarders.forEach { $0.cancel() }
+            // Let Ctrl-C reach the caller again (apprun queue waits between jobs).
+            [SIGINT, SIGTERM, SIGHUP].forEach { signal($0, SIG_DFL) }
+        }
 
         let exited = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in exited.signal() }
@@ -72,6 +99,9 @@ public final class CommandRunner: @unchecked Sendable {
             _ = exited.wait(timeout: .now() + 1)
         }
         process.waitUntilExit()
+        // Background children that inherited the pipe can keep it open forever; don't wait on them.
+        // ponytail: after the cap the copy thread lingers and may mix into the next job's output; fine for `&` daemons.
+        _ = copied.wait(timeout: .now() + 2)
         assertion.release()
 
         // Shell convention: a child killed by signal N exits 128 + N.

@@ -38,7 +38,7 @@ apprun queue              # list
 apprun --sleep queue run  # sleep when done
 ```
 
-The queue is a plain file (`~/Library/Application Support/LidRunPersonal/queue.txt`, one shell command per line) you can edit by hand. Ctrl-C stops the queue.
+The queue is a plain file (`~/Library/Application Support/LidRunPersonal/queue.txt`, one shell command per line) you can edit by hand. Ctrl-C stops the queue; `apprun queue pause` / `resume` (or the Job queue sheet in the menu bar panel) lets the current job finish and holds the rest. Each job's output is saved under `LidRunPersonal/logs/`, and the last lines are included in the push. Queued jobs write to a pipe, not a terminal, so queue non-interactive commands (`claude -p`, `codex exec`, test scripts), not TUIs.
 
 ### Push when an agent is stuck
 
@@ -53,6 +53,8 @@ An agent waiting for a permission or an answer sits idle all night. Add this to 
 ```
 
 `apprun notify [title]` reads the hook JSON on stdin and sends `project: message`.
+
+Without any hook, LidRun also pushes "Agent looks stuck" when Claude Code or Codex keeps the Mac awake but has used almost no CPU for 15 minutes.
 
 ## Build a free DMG
 
@@ -93,9 +95,10 @@ swift test
 - Charging-only guardrail.
 - Low-battery guardrail: 5%, 10%, or off.
 - Thermal guardrail: releases on serious/critical macOS thermal pressure.
-- Auto Mode detects Claude Code, Cursor, Docker, and Ollama via local process list.
+- Auto Mode detects Claude Code, Codex, Cursor, Docker, and Ollama via local process list.
 - Auto Mode starts when a known workload appears and releases when it ends.
 - Low battery puts the Mac to sleep instead of only releasing the assertion.
+- Battery forecast: the panel shows when the low-battery stop will come (from macOS's time-to-empty estimate), and LidRun warns when a timer outlasts the battery or the stop is under 30 minutes away.
 - Optional extended Auto Mode: Python, Node, SSH/rsync, Xcode builds and transfers above ~1 MB/s.
 - Full Closed-Lid Mode (optional): Settings → Install asks for the admin password once and adds `/etc/sudoers.d/lidrun`, which allows only `pmset -a disablesleep 0|1`. The lid can then close on battery too. Sleep is re-enabled on every stop, guardrail release and app launch; Settings → Remove deletes the rule.
 - Watch an already-running process until it exits (optionally sleep afterwards).

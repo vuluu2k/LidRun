@@ -9,6 +9,7 @@ struct LidRunView: View {
     @State private var showAlerts = false
     @State private var showSettings = false
     @State private var showWatch = false
+    @State private var showQueue = false
     @State private var watchQuery = ""
     @State private var candidates: [WatchCandidate] = []
     @State private var ntfyDraft = ""
@@ -51,6 +52,7 @@ struct LidRunView: View {
         .sheet(isPresented: $showAlerts) { detailSheet(t("notifications"), alerts) }
         .sheet(isPresented: $showSettings) { detailSheet(t("settings"), settings) }
         .sheet(isPresented: $showWatch) { detailSheet(t("watchProcess"), watchList) }
+        .sheet(isPresented: $showQueue) { detailSheet(t("queue"), queueList) }
     }
 
     private var modeIcon: String {
@@ -178,11 +180,12 @@ struct LidRunView: View {
 
     private var navigation: some View {
         VStack(spacing: 0) {
-            navRow(t("status"), "gauge.with.dots.needle.33percent", model.session.isActive ? t("protected") : t("idle")) {}
+            navRow(t("status"), "gauge.with.dots.needle.33percent", model.statusText) {}
             navRow(t("watchProcess"), "scope", model.watchedProcess?.name ?? "›") {
                 candidates = model.watchCandidates()
                 showWatch = true
             }
+            navRow(t("queue"), "list.number", queueSummary) { model.refreshQueue(); showQueue = true }
             navRow(t("tasksReports"), "list.bullet.clipboard", "›") { showReport = true }
             navRow(t("notifications"), "bell", model.alertsEnabled ? t("On") : "›") { showAlerts = true }
         }
@@ -255,6 +258,37 @@ struct LidRunView: View {
                     .font(.system(size: 11)).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var queueSummary: String {
+        let count = model.queueJobs.count
+        if model.queuePaused { return "\(t("paused")) · \(count)" }
+        if model.queueRunning != nil { return "\(t("runningNow")) · \(count)" }
+        return count == 0 ? "›" : "\(count)"
+    }
+
+    private var queueList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(t("queueHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
+            HStack {
+                Button(model.queuePaused ? t("resume") : t("pause")) { model.setQueuePaused(!model.queuePaused) }
+                Button(t("editQueue"), action: model.openQueueFile)
+                Button(t("openLogs"), action: model.openQueueLogs)
+                Spacer()
+                Button(t("clear"), action: model.clearQueue).disabled(model.queueJobs.isEmpty)
+            }
+            .controlSize(.small)
+            if let running = model.queueRunning {
+                Label(running, systemImage: "play.fill").font(.system(size: 11, weight: .semibold)).lineLimit(2)
+            }
+            if model.queueJobs.isEmpty, model.queueRunning == nil {
+                Text(t("queueEmpty")).font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(Array(model.queueJobs.enumerated()), id: \.offset) { index, job in
+                Text("\(index + 1). \(job)").font(.system(size: 11, design: .monospaced)).lineLimit(2).textSelection(.enabled)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,7 +399,7 @@ struct LidRunView: View {
             HStack {
                 Text(title).font(.headline)
                 Spacer()
-                Button(t("done")) { showReport = false; showAlerts = false; showSettings = false; showWatch = false }
+                Button(t("done")) { showReport = false; showAlerts = false; showSettings = false; showWatch = false; showQueue = false }
             }
             ScrollView { content }
         }

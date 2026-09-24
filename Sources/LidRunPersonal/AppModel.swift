@@ -39,6 +39,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var scheduleEndHour = 7
     @Published private(set) var sleepWhenWatchEnds = false
     @Published private(set) var isUpdating = false
+    @Published private(set) var queueJobs: [String] = []
+    @Published private(set) var queueRunning: String?
+    @Published private(set) var queuePaused = false
     @Published private var now = Date()
 
     private let controller = SessionController()
@@ -61,6 +64,9 @@ final class AppModel: ObservableObject {
     private var autoPaused = false
     private var closedLidChecklistAccepted = false
     private var heatWarned = false
+    private var batteryWarned = false
+    private var idleAgents = IdleAgentMonitor()
+    private let jobQueue = JobQueue()
     private var panelVisible = false
     private var crashGuard: Process?
     private var watchSource: DispatchSourceProcess?
@@ -143,6 +149,13 @@ final class AppModel: ObservableObject {
         return "\(seconds / 3600)h"
     }
     var isCharging: Bool { snapshot?.isCharging == true }
+
+    /// When the low-battery guardrail is expected to stop things, from macOS's time-to-empty estimate.
+    var batteryUntil: Date? { snapshot.flatMap { BatteryForecast.guardrailTime(now: Date(), snapshot: $0, threshold: lowBatteryPercent) } }
+    var statusText: String {
+        if session.isActive, let until = batteryUntil { return "\(L10n.text("batteryUntil", language)) \(until.formatted(date: .omitted, time: .shortened))" }
+        return L10n.text(session.isActive ? "protected" : "idle", language)
+    }
 
     var whyAwakeText: String { describe(session.whyAwake) }
 
@@ -511,15 +524,20 @@ final class AppModel: ObservableObject {
     func refresh() {
         snapshot = guardrailReader.snapshot()
         // Scanning processes and re-reading the log are the expensive parts; skip them when nobody needs them.
-        if autoModeEnabled || panelVisible {
+        // Also scan during any session: the idle-agent check needs the agents' CPU.
+        if autoModeEnabled || panelVisible || session.isActive {
             let custom = customProcessRules.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
             workloads = WorkloadDetector.detect(in: processList.processes(), customNeedles: custom, extended: extendedDetection)
             if extendedDetection, let rate = network.rate(), rate > 1_000_000 {  // ~1 MB/s; idle background traffic sits around 200 KB/s
                 workloads.append(DevWorkload(label: "Network transfer", process: RunningProcess(name: "network", command: "\(Int(rate / 1000)) KB/s")))
             }
         }
-        if panelVisible { recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? [] }
+        if panelVisible {
+            recentEvents = (try? eventLog.recent(limit: Self.reportEventLimit)) ?? []
+            refreshQueue()
+        }
         evaluateAutoMode()
+        evaluateIdleAgents()
         evaluateSchedule()
         evaluateSafety()
     }
@@ -562,6 +580,7 @@ final class AppModel: ObservableObject {
             watchdog?.invalidate()
             releaseClosedLid()
             stopWatching()
+            batteryWarned = false
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
             publish(title: L10n.text("notifStopped", language), body: L10n.text(reason, language), event: "stopped")
         }
@@ -599,6 +618,13 @@ final class AppModel: ObservableObject {
             if reason == .lowBattery || (lidMode && SystemSleep.isLidClosed) { SystemSleep.sleepNow() }
             return
         }
+        if !batteryWarned, BatteryForecast.runsOutEarly(guardrailAt: batteryUntil, releaseAt: session.releaseAt, now: Date()), let until = batteryUntil {
+            batteryWarned = true
+            let clock = until.formatted(date: .omitted, time: .shortened)
+            publish(title: L10n.text("batterySoonTitle", language), body: String(format: L10n.text("batterySoonBody", language), clock), event: "battery_warning")
+        } else if isCharging {
+            batteryWarned = false
+        }
         // A shut lid traps heat: warn at "fair", before the serious/critical stop.
         if closedLidEnabled, snapshot.thermalPressure == .fair {
             if !heatWarned {
@@ -608,6 +634,36 @@ final class AppModel: ObservableObject {
         } else if snapshot.thermalPressure == .nominal {
             heatWarned = false
         }
+    }
+
+    /// Pushes once when an agent that is keeping the Mac awake has sat near 0% CPU for 15 minutes.
+    private func evaluateIdleAgents() {
+        let agents = workloads.filter { IdleAgentMonitor.agentLabels.contains($0.label) }
+        let cpu = session.isActive && !agents.isEmpty ? agents.reduce(0) { $0 + $1.process.cpu } : nil
+        guard idleAgents.update(agentCPU: cpu, now: Date()) else { return }
+        let names = Set(agents.map(\.label)).sorted().joined(separator: ", ")
+        publish(title: L10n.text("agentIdleTitle", language), body: String(format: L10n.text("agentIdleBody", language), names), event: "agent_idle")
+    }
+
+    // MARK: Job queue (run by `apprun queue run`; the app only shows and steers it)
+
+    func refreshQueue() {
+        queueJobs = jobQueue.list()
+        queueRunning = jobQueue.running()
+        queuePaused = jobQueue.isPaused
+    }
+
+    func setQueuePaused(_ paused: Bool) { jobQueue.setPaused(paused); refreshQueue() }
+    func clearQueue() { try? jobQueue.clear(); refreshQueue() }
+
+    func openQueueFile() {
+        if !FileManager.default.fileExists(atPath: jobQueue.url.path) { try? jobQueue.clear() }
+        NSWorkspace.shared.open(jobQueue.url)
+    }
+
+    func openQueueLogs() {
+        try? FileManager.default.createDirectory(at: jobQueue.logDirectory, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(jobQueue.logDirectory)
     }
 
     private func scheduleWatchdog() {

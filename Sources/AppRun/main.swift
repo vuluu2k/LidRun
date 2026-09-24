@@ -36,9 +36,11 @@ Usage: apprun [--sleep] -- <command> [arguments]
        apprun notify [title]              push stdin hook JSON (or a default line) to phone/webhook
        apprun queue add -- <command>      append a job
        apprun queue [list|clear]          show or empty the queue
+       apprun queue pause|resume          hold the queue after the current job
        apprun [--sleep] queue run         run jobs one by one, awake until the queue is empty
 """
 
+signal(SIGPIPE, SIG_IGN)  // `apprun queue run | head` must not kill the runner mid-job
 var arguments = Array(CommandLine.arguments.dropFirst())
 let sleepWhenDone = arguments.first == "--sleep"
 if sleepWhenDone { arguments.removeFirst() }
@@ -80,33 +82,53 @@ case ("queue", "clear"?):
     do { try JobQueue().clear() } catch { fail("apprun: \(error)", 1) }
     exit(0)
 
+case ("queue", "pause"?), ("queue", "resume"?):
+    JobQueue().setPaused(arguments[1] == "pause")
+    exit(0)
+
 case ("queue", "list"?), ("queue", nil):
     let queue = JobQueue()
+    if let job = queue.running() { print("running: \(job)") }
     queue.list().enumerated().forEach { print("\($0.offset + 1). \($0.element)") }
-    print("(\(queue.list().count) queued in \(queue.url.path))")
+    print("(\(queue.list().count) queued\(queue.isPaused ? ", paused" : "") in \(queue.url.path))")
     exit(0)
 
 case ("queue", "run"?):
     let queue = JobQueue()
     var ok = 0, failed: [String] = []
+    var saidPaused = false
     while !queue.list().isEmpty {
+        // Paused from the menu bar: hold nothing awake, check again shortly.
+        if queue.isPaused {
+            if !saidPaused { print("apprun queue: paused — run `apprun queue resume` to continue"); saidPaused = true }
+            queue.setRunning(nil)
+            Thread.sleep(forTimeInterval: 5)
+            continue
+        }
         // Safety beats convenience: never start a job while a guardrail says stop; remaining jobs stay in the file.
         if case .stop(let reason) = SafetyGovernor.evaluate(SystemGuardrailReader().snapshot(), policy: settings.guardrailPolicy) {
+            queue.setRunning(nil)
             notify(title: "Queue paused", body: "Guardrail: \(reason.rawValue). \(queue.list().count) job(s) left.", event: "stopped")
             exit(1)
         }
+        saidPaused = false
         guard let job = try? queue.pop() else { break }
         print("apprun queue: \(job)")
+        queue.setRunning(job)
+        let log = queue.newLog(for: job)
         do {
-            let result = try CommandRunner().run(executable: "/bin/sh", arguments: ["-c", job], policy: settings.guardrailPolicy)
-            let line = "\(job) exited \(result.exitCode) after \(Int(result.duration))s"
+            let result = try CommandRunner().run(executable: "/bin/sh", arguments: ["-c", job], policy: settings.guardrailPolicy, outputLog: log)
+            let tail = JobQueue.tail(of: log)
+            let line = "\(job) exited \(result.exitCode) after \(Int(result.duration))s" + (tail.isEmpty ? "" : "\n\(tail)") + "\nLog: \(log.path)"
             // Ctrl-C / kill reaches the job (the runner forwards it); treat it as "stop the queue".
-            if result.exitCode == 128 + SIGINT || result.exitCode == 128 + SIGTERM {
+            if [SIGINT, SIGTERM, SIGHUP].contains(result.exitCode - 128) {
+                queue.setRunning(nil)
                 fail("apprun queue: interrupted during \(job); \(queue.list().count) job(s) left", result.exitCode)
             }
             if result.exitCode == 0 { ok += 1 } else { failed.append(job) }
             notify(title: result.exitCode == 0 ? "Job done" : "Job failed", body: line, event: "command_finished")
             if let stop = result.safetyStop {
+                queue.setRunning(nil)
                 notify(title: "Queue paused", body: "Guardrail: \(stop.rawValue). \(queue.list().count) job(s) left.", event: "stopped")
                 exit(1)
             }
@@ -115,8 +137,10 @@ case ("queue", "run"?):
             notify(title: "Job failed", body: "\(job): \(error)", event: "command_finished")
         }
     }
+    queue.setRunning(nil)
     notify(title: "Queue finished", body: "\(ok) ok, \(failed.count) failed" + (failed.isEmpty ? "" : ": " + failed.joined(separator: "; ")), event: "queue_finished")
-    if sleepWhenDone { SystemSleep.sleepNow() }
+    // Nothing ran (e.g. the queue was cleared while paused): don't surprise anyone with a sleep.
+    if sleepWhenDone, ok + failed.count > 0 { SystemSleep.sleepNow() }
     exit(failed.isEmpty ? 0 : 1)
 
 default:

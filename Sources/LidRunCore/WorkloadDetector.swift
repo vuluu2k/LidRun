@@ -3,10 +3,13 @@ import Foundation
 public struct RunningProcess: Equatable, Sendable {
     public let name: String
     public let command: String
+    /// `ps` %CPU, a decaying average over roughly the last minute.
+    public let cpu: Double
 
-    public init(name: String, command: String) {
+    public init(name: String, command: String, cpu: Double = 0) {
         self.name = name
         self.command = command
+        self.cpu = cpu
     }
 }
 
@@ -26,6 +29,7 @@ public enum WorkloadDetector {
     // Idle daemons (Docker Desktop, `ollama serve`) are not workloads; active CLI runs and loaded models are.
     private static let matchers: [(label: String, names: Set<String>, commands: [String])] = [
         ("Claude Code", ["claude"], ["@anthropic-ai/claude-code", "claude-code/cli.js"]),
+        ("Codex", ["codex"], ["@openai/codex"]),
         ("Cursor", ["Cursor"], []),
         ("Docker", ["docker", "docker-compose"], []),
         ("Ollama", [], ["ollama run"]),
@@ -66,7 +70,8 @@ public struct SystemProcessList: ProcessListing {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-axo", "comm=,command="]
+        process.arguments = ["-axo", "pcpu=,comm=,command="]
+        process.environment = ["LC_ALL": "C"]  // "0,1" in comma-decimal locales would drop every line
         process.standardOutput = pipe
         guard (try? process.run()) != nil else { return [] }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -75,9 +80,11 @@ public struct SystemProcessList: ProcessListing {
         return output.split(separator: "\n").compactMap { line in
             let text = String(line).trimmingCharacters(in: .whitespaces)
             guard !text.isEmpty else { return nil }
-            let parts = text.split(separator: " ", maxSplits: 1).map(String.init)
-            let name = URL(fileURLWithPath: parts[0]).lastPathComponent
-            return RunningProcess(name: name, command: parts.dropFirst().first ?? text)
+            let parts = text.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true).map(String.init)
+            guard parts.count >= 2 else { return nil }
+            let cpu = Double(parts[0].replacingOccurrences(of: ",", with: ".")) ?? 0
+            let name = URL(fileURLWithPath: parts[1]).lastPathComponent
+            return RunningProcess(name: name, command: parts.count > 2 ? parts[2] : parts[1], cpu: cpu)
         }
     }
 }
