@@ -2,16 +2,19 @@ const copy = {
   en: {
     navFeatures:'Features', navInstall:'Install', source:'Source', eyebrow:'FREE · OPEN SOURCE · LOCAL FIRST',
     heroTitle:'Keep the work running.<br><em>Even when the lid closes.</em>',
-    heroBody:'A compact menu bar utility that keeps your Mac awake while Claude Code, Cursor, Docker, or Ollama works — with battery and thermal guardrails built in.',
+    heroBody:'A compact menu bar utility that keeps your Mac awake while Claude Code, Codex, Cursor, Docker, or Ollama works — with battery and thermal guardrails built in.',
     download:'Download LidRun free', howInstall:'Installation guide', requirement:'macOS 13 or newer', unsigned:'Unnotarized build',
     trust1:'No account', trust2:'No subscription', trust3:'No outbound telemetry', trust4:'Data stays local',
     featuresEye:'SMALL, BUT CAPABLE', featuresTitle:'Focus on the work, not your power settings.',
-    f1Title:'Auto Mode', f1Body:'Stays awake when it detects Claude Code, Cursor, Docker, or Ollama. Optional extended detection for Python, Node, SSH/rsync, Xcode builds, and large network transfers (&gt;~1 MB/s), plus custom process rules.',
+    f1Title:'Auto Mode', f1Body:'Stays awake when it detects Claude Code, Codex, Cursor, Docker, or Ollama. Optional extended detection for Python, Node, SSH/rsync, Xcode builds, and large network transfers (&gt;~1 MB/s), plus custom process rules.',
     f2Title:'Closed-Lid Mode', f2Body:'Keep working with the lid shut. Without setup it needs the charger (a macOS limitation). Turn on “Full Closed-Lid” in Settings: enter your admin password once to install a sudoers rule that only allows <code>pmset -a disablesleep 0|1</code>, so it works on battery too. Sleep is restored on every stop, safety stop, quit, and app launch; a safety checklist is shown before first use.',
-    f3Title:'Safety first', f3Body:'Stops when the charger is unplugged (Only When Charging), on low battery (and puts the Mac to sleep before it dies), or when macOS reports serious/critical thermal state. A watchdog caps maximum runtime. If a safety stop happens with the lid shut, the Mac sleeps immediately.',
+    f3Title:'Safety first', f3Body:'Stops when the charger is unplugged (Only When Charging), on low battery (and puts the Mac to sleep before it dies), or when macOS reports serious/critical thermal state. A battery forecast shows how long it will last and warns early when a timer outlasts it. A watchdog caps maximum runtime. If a safety stop happens with the lid shut, the Mac sleeps immediately.',
     f4Title:'Run Command', f4Body:'<code>apprun -- &lt;command&gt;</code> keeps the Mac awake until the command exits, returns its exit code, uses the app’s safety settings, and posts a <code>command_finished</code> webhook. <code>apprun --sleep -- &lt;command&gt;</code> sleeps the Mac when it finishes.',
-    f5Title:'Alerts &amp; webhooks', f5Body:'macOS notifications plus Discord, Slack, Teams, or generic JSON webhooks, with an optional bearer token.',
+    f5Title:'Alerts &amp; webhooks', f5Body:'Free phone push through ntfy.sh (no account), macOS notifications, and Discord, Slack, Teams, or generic JSON webhooks with an optional bearer token.',
     f6Title:'One-click updates &amp; local reports', f6Body:'An in-app “Update to vX” button. Weekly reports and the JSONL activity log stay on your Mac. Global shortcuts ⌃⌥A/S/L/X.',
+    f7Title:'Overnight agent queue', f7Body:'Queue work with <code>apprun queue add -- claude -p "…"</code> and run it in order with <code>apprun queue run</code>. The Mac stays awake until the queue is empty; every job gets its own log and a push with its last lines. Pause or check the queue from the panel.',
+    f8Title:'Know when an agent is stuck', f8Body:'Claude Code or Codex idle for 15 minutes while keeping the Mac awake? LidRun pushes to your phone. Add the <code>apprun notify</code> hook to hear the moment an agent waits for your permission.',
+    f9Title:'Watch, schedule &amp; URL scheme', f9Body:'Pick a running process and stay awake until it ends. A daily awake window (e.g. 01:00–07:00), a menu bar countdown, and <code>lidrun://start?minutes=60</code> for Shortcuts, Raycast, and scripts.',
     installEye:'INSTALL IN ONE MINUTE', installTitle:'One command. No Gatekeeper prompt.', copy:'Copy', copied:'Copied', gatekeeper:'Paste this into Terminal. It downloads the latest build, verifies its SHA-256, and installs it to Applications without a Gatekeeper warning. Installed copies update from inside the app.',
     step1Title:'Or download the DMG', step1Body:'Drag LidRun Personal.app into the Applications folder.',
     step2Title:'Open the app once', step2Body:'macOS blocks it because the free build is not Apple-notarized. Click Done.',
@@ -25,7 +28,7 @@ const copy = {
     donateGithub:'One-time or monthly', donateCoffee:'A small one-time tip', donateBank:'Bank transfer (VietQR)', donateBankName:'Bank', donateAccount:'Account', donateHolder:'Account holder',
     ctaTitle:'Do not let one sleep event end a long-running job.', footer:'Built for long-running work.',
     panelReady:'Ready', panelCharging:'Charging', panelAutoMode:'Auto Mode', panelKeepAwake:'Keep Awake', panelChargingOnly:'Only When Charging', panelTimer:'Timer', panelClosedLid:'Closed-Lid Mode', panelCooling:'Cooling', panelStop:'Stop',
-    panelStatus:'Status', panelProtected:'Protected', panelTasks:'Tasks &amp; Reports', panelNotifications:'Notifications &amp; Webhooks', panelSettings:'Settings', panelQuit:'Quit LidRun', panelUpdate:'Update to v0.1.15'
+    panelStatus:'Status', panelProtected:'Protected', panelWatch:'Watch a process', panelQueue:'Job queue', panelQueueValue:'Running · 2', panelTasks:'Tasks &amp; Reports', panelNotifications:'Notifications &amp; Webhooks', panelSettings:'Settings', panelQuit:'Quit LidRun', panelUpdate:'Update to v0.1.15'
   }
 };
 

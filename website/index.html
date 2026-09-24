@@ -39,7 +39,7 @@
       <div class="hero-copy">
         <p class="eyebrow" data-i18n="eyebrow">MIỄN PHÍ · MÃ NGUỒN MỞ · CHẠY CỤC BỘ</p>
         <h1 data-i18n="heroTitle">Để công việc chạy tiếp.<br><em>Kể cả khi đóng máy.</em></h1>
-        <p class="lead" data-i18n="heroBody">Một tiện ích menu bar nhỏ gọn giữ Mac thức khi Claude Code, Cursor, Docker hoặc Ollama đang làm việc — với giới hạn pin và nhiệt độ tích hợp.</p>
+        <p class="lead" data-i18n="heroBody">Một tiện ích menu bar nhỏ gọn giữ Mac thức khi Claude Code, Codex, Cursor, Docker hoặc Ollama đang làm việc — với giới hạn pin và nhiệt độ tích hợp.</p>
         <div class="actions">
           <a class="button primary download-link" href="https://statics.pancake.vn/web-media-263/d0/d6/57/31/a46f8c594ebd3453fd5e086bce131dd4483f69cf17abad4ffa3c5e50.dmg" data-i18n="download">Tải LidRun miễn phí</a>
           <a class="button secondary" href="#install" data-i18n="howInstall">Cách cài đặt</a>
@@ -69,6 +69,8 @@
               <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
               <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
               <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.3" r="1.2" fill="currentColor" stroke="none"/></symbol>
+              <symbol id="i-scope" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></symbol>
+              <symbol id="i-queue" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 5l1.2-.8V8M3.6 11.2a1 1 0 0 1 1.9.4c0 .8-1.9 1.6-1.9 2.4h2M3.8 16.5h1.6l-.9 1.2a.9.9 0 1 1-.8 1.4"/></symbol>
               <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8"/></symbol>
             </defs>
           </svg>
@@ -102,6 +104,8 @@
             <div class="pn-row"><svg class="red"><use href="#i-stop"/></svg><span data-i18n="panelStop">Dừng</span><kbd>⌃⌥X</kbd></div>
             <hr>
             <div class="pn-row"><svg><use href="#i-gauge"/></svg><span data-i18n="panelStatus">Trạng thái</span><em data-i18n="panelProtected">Đang bảo vệ</em></div>
+            <div class="pn-row"><svg><use href="#i-scope"/></svg><span data-i18n="panelWatch">Theo dõi tiến trình</span><em>›</em></div>
+            <div class="pn-row"><svg><use href="#i-queue"/></svg><span data-i18n="panelQueue">Hàng đợi job</span><em data-i18n="panelQueueValue">Đang chạy · 2</em></div>
             <div class="pn-row"><svg><use href="#i-clip"/></svg><span data-i18n="panelTasks">Tác vụ &amp; Báo cáo</span><em>›</em></div>
             <div class="pn-row"><svg><use href="#i-bell"/></svg><span data-i18n="panelNotifications">Thông báo &amp; Webhook</span><em>On</em></div>
             <hr>
@@ -125,12 +129,15 @@
       <p class="eyebrow" data-i18n="featuresEye">NHỎ GỌN, NHƯNG ĐỦ DÙNG</p>
       <h2 data-i18n="featuresTitle">Tập trung vào công việc, không phải cài đặt nguồn điện.</h2>
       <div class="cards">
-        <article><b>01</b><h3 data-i18n="f1Title">Auto Mode</h3><p data-i18n="f1Body">Tự giữ máy thức khi phát hiện Claude Code, Cursor, Docker, Ollama. Tuỳ chọn nhận diện mở rộng cho Python, Node, SSH/rsync, build Xcode và truyền mạng lớn (&gt;~1 MB/s), cùng quy tắc process riêng.</p></article>
+        <article><b>01</b><h3 data-i18n="f1Title">Auto Mode</h3><p data-i18n="f1Body">Tự giữ máy thức khi phát hiện Claude Code, Codex, Cursor, Docker, Ollama. Tuỳ chọn nhận diện mở rộng cho Python, Node, SSH/rsync, build Xcode và truyền mạng lớn (&gt;~1 MB/s), cùng quy tắc process riêng.</p></article>
         <article><b>02</b><h3 data-i18n="f2Title">Closed-Lid Mode</h3><p data-i18n="f2Body">Tiếp tục chạy khi gập nắp. Mặc định cần cắm sạc (giới hạn của macOS). Bật “Full Closed-Lid” trong Settings: nhập mật khẩu admin một lần để cài quy tắc sudoers chỉ cho phép <code>pmset -a disablesleep 0|1</code>, nên chạy được cả khi dùng pin. Sleep luôn được khôi phục khi dừng, dừng an toàn, thoát hoặc mở lại app; có checklist an toàn trước lần dùng đầu.</p></article>
-        <article><b>03</b><h3 data-i18n="f3Title">An toàn là trên hết</h3><p data-i18n="f3Body">Tự dừng khi rút sạc (Only When Charging), pin yếu (và cho Mac sleep trước khi cạn pin), hoặc macOS báo nhiệt serious/critical. Watchdog giới hạn thời gian chạy tối đa. Nếu dừng an toàn lúc đang gập nắp, Mac sleep ngay.</p></article>
+        <article><b>03</b><h3 data-i18n="f3Title">An toàn là trên hết</h3><p data-i18n="f3Body">Tự dừng khi rút sạc (Only When Charging), pin yếu (và cho Mac sleep trước khi cạn pin), hoặc macOS báo nhiệt serious/critical. Dự báo pin cho biết đủ đến mấy giờ và cảnh báo sớm nếu timer dài hơn thời lượng pin. Watchdog giới hạn thời gian chạy tối đa.</p></article>
         <article><b>04</b><h3 data-i18n="f4Title">Run Command</h3><p data-i18n="f4Body"><code>apprun -- &lt;lệnh&gt;</code> giữ Mac thức tới khi lệnh kết thúc, trả về đúng exit code, dùng cài đặt an toàn của app và gửi webhook <code>command_finished</code>. <code>apprun --sleep -- &lt;lệnh&gt;</code> cho Mac sleep khi xong.</p></article>
-        <article><b>05</b><h3 data-i18n="f5Title">Thông báo &amp; webhook</h3><p data-i18n="f5Body">Thông báo macOS cùng webhook cho Discord, Slack, Teams hoặc JSON tuỳ ý, có thể kèm bearer token.</p></article>
+        <article><b>05</b><h3 data-i18n="f5Title">Thông báo &amp; webhook</h3><p data-i18n="f5Body">Push miễn phí lên điện thoại qua ntfy.sh (không cần tài khoản), thông báo macOS và webhook cho Discord, Slack, Teams hoặc JSON tuỳ ý, có thể kèm bearer token.</p></article>
         <article><b>06</b><h3 data-i18n="f6Title">Cập nhật một chạm &amp; báo cáo cục bộ</h3><p data-i18n="f6Body">Nút “Update to vX” ngay trong app. Báo cáo tuần và nhật ký JSONL nằm trên máy bạn. Phím tắt toàn cục ⌃⌥A/S/L/X.</p></article>
+        <article><b>07</b><h3 data-i18n="f7Title">Hàng đợi agent qua đêm</h3><p data-i18n="f7Body">Xếp việc bằng <code>apprun queue add -- claude -p "…"</code>, chạy lần lượt bằng <code>apprun queue run</code>. Mac thức tới khi hết hàng đợi, mỗi job có log riêng và báo kết quả kèm vài dòng cuối. Tạm dừng hoặc xem hàng đợi ngay trong panel.</p></article>
+        <article><b>08</b><h3 data-i18n="f8Title">Báo khi agent bị kẹt</h3><p data-i18n="f8Body">Claude Code hoặc Codex đứng im 15 phút lúc đang giữ máy thức? LidRun báo lên điện thoại. Thêm hook <code>apprun notify</code> để được báo ngay khi agent chờ bạn cấp quyền.</p></article>
+        <article><b>09</b><h3 data-i18n="f9Title">Theo dõi, lịch &amp; URL scheme</h3><p data-i18n="f9Body">Chọn một tiến trình đang chạy và giữ máy thức tới khi nó xong. Lịch thức hằng ngày (vd 01:00–07:00), đếm ngược trên menu bar, và <code>lidrun://start?minutes=60</code> cho Shortcuts, Raycast, script.</p></article>
       </div>
     </section>
 
