@@ -638,10 +638,9 @@ final class AppModel: ObservableObject {
 
     /// Pushes once when an agent that is keeping the Mac awake has sat near 0% CPU for 15 minutes.
     private func evaluateIdleAgents() {
-        let agents = workloads.filter { IdleAgentMonitor.agentLabels.contains($0.label) }
-        let cpu = session.isActive && !agents.isEmpty ? agents.reduce(0) { $0 + $1.process.cpu } : nil
+        let cpu = session.isActive ? IdleAgentMonitor.agentCPU(workloads) : nil
         guard idleAgents.update(agentCPU: cpu, now: Date()) else { return }
-        let names = Set(agents.map(\.label)).sorted().joined(separator: ", ")
+        let names = Set(workloads.map(\.label).filter(IdleAgentMonitor.agentLabels.contains)).sorted().joined(separator: ", ")
         publish(title: L10n.text("agentIdleTitle", language), body: String(format: L10n.text("agentIdleBody", language), names), event: "agent_idle")
     }
 

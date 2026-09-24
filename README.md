@@ -56,6 +56,10 @@ An agent waiting for a permission or an answer sits idle all night. Add this to 
 
 Without any hook, LidRun also pushes "Agent looks stuck" when Claude Code or Codex keeps the Mac awake but has used almost no CPU for 15 minutes.
 
+### Drive Claude from your phone (Remote Control)
+
+Claude Code's own [Remote Control](https://code.claude.com/docs/en/remote-control) lets you approve permissions and send new prompts from the Claude mobile app, but only while the Mac stays awake and online. Run `claude remote-control` with Auto Mode on (it is detected as Claude Code), or add Closed-Lid Mode to keep it reachable with the lid shut. The idle `remote-control` server is not reported as a stuck agent.
+
 ## Build a free DMG
 
 ```bash

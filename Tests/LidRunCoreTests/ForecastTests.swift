@@ -31,3 +31,11 @@ import Testing
     #expect(step(0, 281))
     #expect(!step(nil, 290))  // no agent: nothing to say
 }
+
+@Test func remoteControlServerIsNotCountedAsAStuckAgent() {
+    let remote = DevWorkload(label: "Claude Code", process: RunningProcess(name: "claude", command: "claude remote-control", cpu: 0))
+    let busy = DevWorkload(label: "Claude Code", process: RunningProcess(name: "claude", command: "claude -p fix", cpu: 12))
+    let docker = DevWorkload(label: "Docker", process: RunningProcess(name: "docker", command: "docker build .", cpu: 0))
+    #expect(IdleAgentMonitor.agentCPU([remote, docker]) == nil)
+    #expect(IdleAgentMonitor.agentCPU([remote, busy]) == 12)
+}

@@ -30,6 +30,13 @@ public struct IdleAgentMonitor: Sendable {
         self.cpuThreshold = cpuThreshold
     }
 
+    /// The agents' summed CPU, or nil when none run. `claude remote-control` is left out: it idles by design
+    /// while it waits for you on the phone, so it would always look stuck.
+    public static func agentCPU(_ workloads: [DevWorkload]) -> Double? {
+        let agents = workloads.filter { agentLabels.contains($0.label) && !$0.process.command.contains("remote-control") }
+        return agents.isEmpty ? nil : agents.reduce(0) { $0 + $1.process.cpu }
+    }
+
     /// Feed the agents' summed CPU (nil when none run). Returns true once per idle stretch.
     public mutating func update(agentCPU: Double?, now: Date) -> Bool {
         guard let agentCPU, agentCPU < cpuThreshold else {
