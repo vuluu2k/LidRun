@@ -55,6 +55,7 @@ final class AppModel: ObservableObject {
     private var metricsMonitor: Timer?
     private var watchdog: Timer?
     private var updateChecker: Timer?
+    private var lastUpdateCheck = Date.distantPast
     private nonisolated static let site = "https://vuluu2k.github.io/LidRun/"
     /// Set when the user stops an Auto session; Auto Mode waits until the workloads end before re-arming.
     private var autoPaused = false
@@ -92,6 +93,8 @@ final class AppModel: ObservableObject {
     func setPanelVisible(_ visible: Bool) {
         panelVisible = visible
         if visible { refresh() }
+        // The daily timer pauses while the Mac sleeps, so opening the panel also checks (at most hourly).
+        if visible, Date().timeIntervalSince(lastUpdateCheck) > 3600 { checkForUpdate() }
         metricsMonitor?.invalidate()
         ticker?.invalidate()
         guard visible else { metricsMonitor = nil; ticker = nil; return }
@@ -620,6 +623,7 @@ final class AppModel: ObservableObject {
         // Dev builds from .build are replaced by rebuilding, not by the release DMG.
         guard !Bundle.main.bundlePath.contains("/.build/"),
               let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String else { return }
+        lastUpdateCheck = Date()
         Task { [weak self] in
             guard let (latest, notes) = await Self.latestRelease() else { return }
             let newer = latest.compare(current, options: .numeric) == .orderedDescending
