@@ -679,6 +679,15 @@ final class AppModel: ObservableObject {
             if reason == .lowBattery || (lidMode && SystemSleep.isLidClosed) { SystemSleep.sleepNow() }
             return
         }
+        // Another app (or `pmset`) re-enabled sleep while Closed-Lid is armed: put it back, or the Mac sleeps when the lid shuts.
+        if sleepDisabled, !SystemSleep.isSleepDisabled {
+            let restored = SystemSleep.setSleepDisabled(true)
+            try? eventLog.append(RunEvent(type: .armed, reason: restored ? "Closed-Lid Mode (sleep re-disabled)" : "Closed-Lid Mode (re-disable failed)"))
+            if !restored {
+                releaseClosedLid()
+                publish(title: L10n.text("sleepReenabledTitle", language), body: L10n.text("closedLidHelperFailed", language), event: "closed_lid_lost")
+            }
+        }
         if !batteryWarned, BatteryForecast.runsOutEarly(guardrailAt: batteryUntil, releaseAt: session.releaseAt, now: Date()), let until = batteryUntil {
             batteryWarned = true
             let clock = until.formatted(date: .omitted, time: .shortened)

@@ -40,6 +40,7 @@ enum L10n {
         "memoryWarningBody": [.english: "macOS may start closing apps to free memory. Quit apps you don't need so your jobs keep running.", .vietnamese: "macOS có thể tự đóng app để giải phóng bộ nhớ. Hãy tắt bớt app không cần để việc đang chạy không bị ngắt."],
         "otherKeepAwakeTitle": [.english: "Another keep-awake app is running", .vietnamese: "Đang có app giữ máy thức khác chạy"],
         "otherKeepAwakeBody": [.english: "%@ can release or re-enable sleep behind LidRun's back. Quit it while using Closed-Lid Mode.", .vietnamese: "%@ có thể nhả hoặc bật lại sleep mà LidRun không biết. Hãy tắt nó khi dùng chế độ đóng nắp."],
+        "sleepReenabledTitle": [.english: "Closed-Lid Mode turned off", .vietnamese: "Đã tắt chế độ đóng nắp"],
         "heatWarningTitle": [.english: "LidRun: Mac is getting warm", .vietnamese: "LidRun: Mac đang nóng lên"],
         "heatWarningBody": [.english: "Closed-Lid Mode is on. Open the lid or improve airflow; LidRun stops at serious heat.", .vietnamese: "Đang bật chế độ đóng nắp. Hãy mở nắp hoặc để thoáng khí; LidRun sẽ dừng khi quá nóng."],
         "commandLineTool": [.english: "Command line tool (apprun)", .vietnamese: "Công cụ dòng lệnh (apprun)"],

@@ -10,10 +10,15 @@ public enum SystemSleep {
     /// Puts the Mac to sleep now; allowed for any logged-in user.
     public static func sleepNow() { run(pmset, ["sleepnow"]) }
 
-    public static var isLidClosed: Bool {
+    public static var isLidClosed: Bool { rootDomainFlag("AppleClamshellState") }
+
+    /// Live `pmset disablesleep` state, read from the registry without spawning pmset.
+    public static var isSleepDisabled: Bool { rootDomainFlag("SleepDisabled") }
+
+    private static func rootDomainFlag(_ key: String) -> Bool {
         let root = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
         defer { IOObjectRelease(root) }
-        let value = IORegistryEntryCreateCFProperty(root, "AppleClamshellState" as CFString, kCFAllocatorDefault, 0)
+        let value = IORegistryEntryCreateCFProperty(root, key as CFString, kCFAllocatorDefault, 0)
         return (value?.takeRetainedValue() as? Bool) ?? false
     }
 
