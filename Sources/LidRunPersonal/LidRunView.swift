@@ -399,6 +399,12 @@ struct LidRunView: View {
                 }
             }
             Text(t("closedLidHelperHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
+            HStack {
+                Text(t("claudeHooks")).font(.caption)
+                Spacer()
+                Button(t(model.claudeHooksInstalled ? "remove" : "install")) { model.setClaudeHooks(!model.claudeHooksInstalled) }.controlSize(.mini)
+            }
+            Text(t("claudeHooksHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
             TextField(t("smartRules"), text: $customRulesDraft).textFieldStyle(.roundedBorder).controlSize(.small)
             Button(t("save")) { model.saveCustomRules(customRulesDraft) }.controlSize(.mini)
             Text(t("safetyNote")).font(.system(size: 9)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)

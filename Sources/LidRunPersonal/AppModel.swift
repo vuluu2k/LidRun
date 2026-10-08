@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var extendedDetection = false
     @Published private(set) var closedLidHelperInstalled = SystemSleep.closedLidHelperInstalled
     @Published private(set) var commandLineToolInstalled = false
+    @Published private(set) var claudeHooksInstalled = ((try? ClaudeHooks.read()) ?? nil).map(ClaudeHooks.isInstalled) ?? false
     @Published var language: AppLanguage = .english
     @Published var errorMessage: String?
     @Published private(set) var notificationStatus = "Not requested"
@@ -75,6 +76,8 @@ final class AppModel: ObservableObject {
     private var memoryPressure: DispatchSourceMemoryPressure?
     private var batteryWarned = false
     private var idleAgents = IdleAgentMonitor()
+    /// True while this app holds a session only so Claude Code can auto-resume after a usage limit.
+    private var waitingForClaudeLimit = false
     private let jobQueue = JobQueue()
     private var panelVisible = false
     private var crashGuard: Process?
@@ -360,6 +363,42 @@ final class AppModel: ObservableObject {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
+    // MARK: Claude Code hooks (`apprun hook` forwards each event as lidrun://agent)
+
+    private func handleAgent(_ signal: AgentSignal, body: String) {
+        switch signal {
+        case .needsYou:
+            publish(title: L10n.text("agentNeedsYouTitle", language), body: body, event: "agent_idle")
+        case .finished:
+            // At the desk you can see the terminal; push only when you are away.
+            guard SystemSleep.isLidClosed || CGDisplayIsAsleep(CGMainDisplayID()) != 0 else { return }
+            publish(title: L10n.text("agentFinishedTitle", language), body: body, event: "agent_idle")
+        case .limitHit:
+            if !session.isActive, guardrailBlock == nil {
+                start { try controller.startWatching("Claude usage limit") }
+                waitingForClaudeLimit = controller.state.isActive
+            }
+            publish(title: L10n.text("agentLimitTitle", language), body: L10n.text("agentLimitBody", language), event: "agent_idle")
+        case .resumed:
+            publish(title: L10n.text("agentResumedTitle", language), body: body, event: "agent_idle")
+        case .gaveUp, .turnEnded:
+            // The resumed turn finished (or resuming was cancelled): the wait session has done its job.
+            if waitingForClaudeLimit { controller.stop(reason: .workloadFinished) }
+        case .ignore:
+            break
+        }
+    }
+
+    func setClaudeHooks(_ enabled: Bool) {
+        do {
+            let current = try ClaudeHooks.read() ?? [:]
+            try ClaudeHooks.write(enabled ? ClaudeHooks.installing(into: current, apprun: bundledAppRun) : ClaudeHooks.removing(from: current))
+            claudeHooksInstalled = enabled
+        } catch {
+            errorMessage = "\(L10n.text("claudeHooksFailed", language)) \(ClaudeHooks.settingsURL.path)"
+        }
+    }
+
     func installCommandLineTool() {
         let bundled = bundledAppRun
         Task { [weak self] in
@@ -457,7 +496,7 @@ final class AppModel: ObservableObject {
     /// A random, hard-to-guess topic: ntfy topics are public to anyone who knows the name.
     static func suggestedTopic() -> String { "lidrun-" + UUID().uuidString.prefix(12).lowercased() }
 
-    // MARK: URL scheme — lidrun://start?minutes=60, stop, toggle, auto?on=1, closedlid?on=0, watch?pid=123
+    // MARK: URL scheme — lidrun://start?minutes=60, stop, toggle, auto?on=1, closedlid?on=0, watch?pid=123, claudehooks?on=1
 
     func handle(_ url: URL) {
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -471,6 +510,8 @@ final class AppModel: ObservableObject {
         case "toggle": toggleKeepAwake()
         case "auto": setAutoMode(on ?? !autoModeEnabled)
         case "closedlid": setClosedLid(on ?? !closedLidEnabled)
+        case "claudehooks": setClaudeHooks(on ?? !claudeHooksInstalled)
+        case "agent": handleAgent(AgentSignal.from(event: value("event"), type: value("type"), error: value("error")), body: value("body") ?? "Claude Code")
         case "watch":
             if let pid = value("pid").flatMap(Int32.init) {
                 watch(WatchCandidate(id: pid, name: Self.processName(pid) ?? "pid \(pid)", cpu: 0))
@@ -642,6 +683,7 @@ final class AppModel: ObservableObject {
             stopWatching()
             batteryWarned = false
             memoryWarned = false
+            waitingForClaudeLimit = false
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
             publish(title: L10n.text("notifStopped", language), body: L10n.text(reason, language), event: "stopped")
         }
@@ -708,7 +750,9 @@ final class AppModel: ObservableObject {
 
     /// Pushes once when an agent that is keeping the Mac awake has sat near 0% CPU for 15 minutes.
     private func evaluateIdleAgents() {
-        let cpu = session.isActive ? IdleAgentMonitor.agentCPU(workloads) : nil
+        // With the hooks installed Claude Code reports waiting itself; the CPU guess stays for the other agents.
+        let watched = claudeHooksInstalled ? workloads.filter { $0.label != "Claude Code" } : workloads
+        let cpu = session.isActive ? IdleAgentMonitor.agentCPU(watched) : nil
         guard idleAgents.update(agentCPU: cpu, now: Date()) else { return }
         let names = Set(workloads.map(\.label).filter(IdleAgentMonitor.agentLabels.contains)).sorted().joined(separator: ", ")
         publish(title: L10n.text("agentIdleTitle", language), body: String(format: L10n.text("agentIdleBody", language), names), event: "agent_idle")

@@ -35,6 +35,7 @@ func fail(_ message: String, _ code: Int32) -> Never {
 let usage = """
 Usage: apprun [--sleep] -- <command> [arguments]
        apprun notify [title]              push stdin hook JSON (or a default line) to phone/webhook
+       apprun hook                        Claude Code hook: forward stdin JSON to the menu bar app
        apprun queue add -- <command>      append a job
        apprun queue [list|clear]          show or empty the queue
        apprun queue pause|resume          hold the queue after the current job
@@ -71,6 +72,26 @@ case ("notify", _):
     // Hooks pipe JSON on stdin; a terminal means a manual call.
     let input = isatty(STDIN_FILENO) == 0 ? FileHandle.standardInput.readDataToEndOfFile() : Data()
     notify(title: arguments.dropFirst().first ?? "Agent needs you", body: HookMessage.body(from: input, fallback: "Waiting for input"), event: "agent_notification")
+    exit(0)
+
+case ("hook", _):
+    // Claude Code hook: hand the event to the menu bar app, which owns the session (keep awake through a usage limit).
+    let input = isatty(STDIN_FILENO) == 0 ? FileHandle.standardInput.readDataToEndOfFile() : Data()
+    let object = (try? JSONSerialization.jsonObject(with: input)) as? [String: Any] ?? [:]
+    var url = URLComponents(string: "lidrun://agent")!
+    url.queryItems = [
+        URLQueryItem(name: "event", value: object["hook_event_name"] as? String),
+        URLQueryItem(name: "type", value: object["notification_type"] as? String),
+        URLQueryItem(name: "error", value: object["error_type"] as? String),
+        URLQueryItem(name: "body", value: HookMessage.body(from: input, fallback: "Claude Code")),
+    ].filter { $0.value != nil }
+    let open = Process()
+    open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    // Target the app this apprun ships in, so a second copy of LidRun (or a dev build) never gets the event.
+    let bundle = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    open.arguments = ["-g"] + (bundle.pathExtension == "app" ? ["-a", bundle.path] : []) + [url.url!.absoluteString]
+    try? open.run()
+    open.waitUntilExit()
     exit(0)
 
 case ("queue", "add"?):
