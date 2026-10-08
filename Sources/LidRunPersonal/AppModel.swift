@@ -281,6 +281,11 @@ final class AppModel: ObservableObject {
             errorMessage = L10n.text("closedLidNeedsCharger", language)
             return
         }
+        // "Only When Charging" would block the session silently; ask instead of failing with a guardrail error.
+        if chargingOnly, !isCharging {
+            guard confirmBatteryClosedLid() else { return }
+            setChargingOnly(false)
+        }
         if !session.isActive { start { try controller.startManual() } }
         guard controller.state.isActive else { return }
         do {
@@ -315,6 +320,16 @@ final class AppModel: ObservableObject {
         guard alert.runModal() == .alertFirstButtonReturn else { return false }
         if alert.suppressionButton?.state == .on { closedLidChecklistAccepted = true; saveSettings() }
         return true
+    }
+
+    private func confirmBatteryClosedLid() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = L10n.text("batteryClosedLidTitle", language)
+        alert.informativeText = L10n.text("batteryClosedLidBody", language)
+        alert.addButton(withTitle: L10n.text("batteryClosedLidConfirm", language))
+        alert.addButton(withTitle: L10n.text("cancel", language))
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     func installCommandLineTool() {
@@ -813,7 +828,7 @@ final class AppModel: ObservableObject {
     private func start(_ action: () throws -> Void) {
         snapshot = guardrailReader.snapshot()
         if let reason = guardrailBlock {
-            errorMessage = "\(L10n.text("blockedByGuardrail", language)): \(reason.rawValue)"
+            errorMessage = "\(L10n.text("blockedByGuardrail", language)): \(L10n.text(reason.rawValue, language))"
             return
         }
         do { try action() } catch { errorMessage = String(describing: error) }
