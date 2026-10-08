@@ -5,6 +5,8 @@ public enum EventType: String, Codable, Sendable {
     case stopped
     case armed
     case disarmed
+    /// A Claude Code permission prompt answered from the phone (RemoteApproval).
+    case remoteDecision = "remote_decision"
 }
 
 public struct RunEvent: Codable, Equatable, Sendable {

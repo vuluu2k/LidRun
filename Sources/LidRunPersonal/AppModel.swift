@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var extendedDetection = false
     @Published private(set) var closedLidHelperInstalled = SystemSleep.closedLidHelperInstalled
     @Published private(set) var commandLineToolInstalled = false
+    @Published private(set) var codexNotifyInstalled = ((try? String(contentsOf: CodexNotify.configURL, encoding: .utf8)) ?? "").contains("codex-notify")
     @Published private(set) var claudeHooksInstalled = ((try? ClaudeHooks.read()) ?? nil).map(ClaudeHooks.isInstalled) ?? false
     @Published var language: AppLanguage = .english
     @Published var errorMessage: String?
@@ -47,6 +48,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var idleAgentAlerts = true
     @Published private(set) var batteryAlerts = true
     @Published private(set) var jobAlerts = true
+    @Published private(set) var remoteApproval = false
     @Published private(set) var pushWindowEnabled = false
     @Published private(set) var pushStartHour = 7
     @Published private(set) var pushEndHour = 23
@@ -399,6 +401,22 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func setCodexNotify(_ enabled: Bool) {
+        let url = CodexNotify.configURL
+        let current = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        guard let updated = enabled ? CodexNotify.installing(into: current, apprun: bundledAppRun) : CodexNotify.removing(from: current) else {
+            errorMessage = "\(L10n.text("codexNotifyFailed", language)) \(url.path)"
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+            codexNotifyInstalled = enabled
+        } catch {
+            errorMessage = "\(L10n.text("codexNotifyFailed", language)) \(url.path)"
+        }
+    }
+
     func installCommandLineTool() {
         let bundled = bundledAppRun
         Task { [weak self] in
@@ -486,6 +504,7 @@ final class AppModel: ObservableObject {
         saveSettings()
     }
 
+    func setRemoteApproval(_ enabled: Bool) { remoteApproval = enabled; saveSettings() }
     func saveNtfyTopic(_ value: String) { ntfyTopic = value.trimmingCharacters(in: .whitespacesAndNewlines); saveSettings() }
 
     func sendTestPush() {
@@ -511,6 +530,7 @@ final class AppModel: ObservableObject {
         case "auto": setAutoMode(on ?? !autoModeEnabled)
         case "closedlid": setClosedLid(on ?? !closedLidEnabled)
         case "claudehooks": setClaudeHooks(on ?? !claudeHooksInstalled)
+        case "codexnotify": setCodexNotify(on ?? !codexNotifyInstalled)
         case "agent": handleAgent(AgentSignal.from(event: value("event"), type: value("type"), error: value("error")), body: value("body") ?? "Claude Code")
         case "watch":
             if let pid = value("pid").flatMap(Int32.init) {
@@ -938,6 +958,7 @@ final class AppModel: ObservableObject {
         idleAgentAlerts = settings.idleAgentAlerts
         batteryAlerts = settings.batteryAlerts
         jobAlerts = settings.jobAlerts
+        remoteApproval = settings.remoteApproval
         pushWindowEnabled = settings.pushWindowEnabled
         pushStartHour = settings.pushStartHour
         pushEndHour = settings.pushEndHour
@@ -966,6 +987,7 @@ final class AppModel: ObservableObject {
         settings.idleAgentAlerts = idleAgentAlerts
         settings.batteryAlerts = batteryAlerts
         settings.jobAlerts = jobAlerts
+        settings.remoteApproval = remoteApproval
         settings.pushWindowEnabled = pushWindowEnabled
         settings.pushStartHour = pushStartHour
         settings.pushEndHour = pushEndHour

@@ -27,6 +27,20 @@ func notify(title: String, body: String, event: String) {
     _ = done.wait(timeout: .now() + 10)
 }
 
+/// Hands an agent event to the menu bar app this apprun ships in (`lidrun://agent`), so a second copy
+/// of LidRun (or a dev build) never gets it.
+func sendToApp(_ fields: [String: String?]) {
+    var url = URLComponents(string: "lidrun://agent")!
+    url.queryItems = fields.compactMap { key, value in value.map { URLQueryItem(name: key, value: $0) } }
+    let bundle = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    let open = Process()
+    open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    open.arguments = ["-g"] + (bundle.pathExtension == "app" ? ["-a", bundle.path] : []) + [url.url!.absoluteString]
+    try? open.run()
+    open.waitUntilExit()
+}
+
 func fail(_ message: String, _ code: Int32) -> Never {
     FileHandle.standardError.write(Data((message + "\n").utf8))
     exit(code)
@@ -36,6 +50,7 @@ let usage = """
 Usage: apprun [--sleep] -- <command> [arguments]
        apprun notify [title]              push stdin hook JSON (or a default line) to phone/webhook
        apprun hook                        Claude Code hook: forward stdin JSON to the menu bar app
+       apprun codex-notify [program...] <json>  Codex notify: run the wrapped program, then tell the app
        apprun queue add -- <command>      append a job
        apprun queue [list|clear]          show or empty the queue
        apprun queue pause|resume          hold the queue after the current job
@@ -78,20 +93,46 @@ case ("hook", _):
     // Claude Code hook: hand the event to the menu bar app, which owns the session (keep awake through a usage limit).
     let input = isatty(STDIN_FILENO) == 0 ? FileHandle.standardInput.readDataToEndOfFile() : Data()
     let object = (try? JSONSerialization.jsonObject(with: input)) as? [String: Any] ?? [:]
-    var url = URLComponents(string: "lidrun://agent")!
-    url.queryItems = [
-        URLQueryItem(name: "event", value: object["hook_event_name"] as? String),
-        URLQueryItem(name: "type", value: object["notification_type"] as? String),
-        URLQueryItem(name: "error", value: object["error_type"] as? String),
-        URLQueryItem(name: "body", value: HookMessage.body(from: input, fallback: "Claude Code")),
-    ].filter { $0.value != nil }
-    let open = Process()
-    open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-    // Target the app this apprun ships in, so a second copy of LidRun (or a dev build) never gets the event.
-    let bundle = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    open.arguments = ["-g"] + (bundle.pathExtension == "app" ? ["-a", bundle.path] : []) + [url.url!.absoluteString]
-    try? open.run()
-    open.waitUntilExit()
+    if object["hook_event_name"] as? String == "PermissionRequest" {
+        // No output = Claude Code shows its usual terminal prompt. Only ask the phone when you are away from the Mac.
+        let assumeAway = ProcessInfo.processInfo.environment["LIDRUN_ASSUME_AWAY"] == "1"  // for testing at the desk
+        guard settings.remoteApproval, !settings.ntfyTopic.isEmpty, assumeAway || RemoteApproval.userIsAway else { exit(0) }
+        let what = RemoteApproval.describe(tool: object["tool_name"] as? String ?? "Tool", input: object["tool_input"] as? [String: Any] ?? [:])
+        let body = HookMessage.body(from: (try? JSONSerialization.data(withJSONObject: ["cwd": object["cwd"] ?? "", "message": what])) ?? Data(), fallback: what)
+        let nonce = UUID().uuidString
+        let asked = Date()
+        guard let request = RemoteApproval.askRequest(topic: settings.ntfyTopic, title: "Claude Code: approve?", message: body, nonce: nonce) else { exit(0) }
+        let sent = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: request) { _, _, _ in sent.signal() }.resume()
+        _ = sent.wait(timeout: .now() + 10)
+        let present: () -> Bool = assumeAway ? { false } : { RemoteApproval.secondsSinceInput < 5 }
+        guard let allow = RemoteApproval.wait(topic: settings.ntfyTopic, nonce: nonce, since: asked, timeout: 580, present: present) else { exit(0) }
+        try? EventLog().append(RunEvent(type: .remoteDecision, reason: "\(allow ? "allowed" : "denied") from phone: \(body)"))
+        print(RemoteApproval.hookOutput(allow: allow))
+        exit(0)
+    }
+    sendToApp([
+        "event": object["hook_event_name"] as? String,
+        "type": object["notification_type"] as? String,
+        "error": object["error_type"] as? String,
+        "body": HookMessage.body(from: input, fallback: "Claude Code"),
+    ])
+    exit(0)
+
+case ("codex-notify", _):
+    // Codex `notify` wrapper: run the program LidRun wrapped first (it gets the same payload), then tell the app.
+    let rest = Array(arguments.dropFirst())
+    if rest.count > 1, let program = rest.first {
+        let wrapped = Process()
+        wrapped.executableURL = URL(fileURLWithPath: program)
+        wrapped.arguments = Array(rest.dropFirst())
+        try? wrapped.run()
+        wrapped.waitUntilExit()
+    }
+    let summary = CodexNotify.summary(fromPayload: rest.last ?? "")
+    if summary.type == "agent-turn-complete" {
+        sendToApp(["event": "Notification", "type": "agent_completed", "body": "Codex · \(summary.body)"])
+    }
     exit(0)
 
 case ("queue", "add"?):

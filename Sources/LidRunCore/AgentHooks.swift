@@ -27,7 +27,7 @@ public enum AgentSignal: Equatable, Sendable {
 
 /// Adds or removes LidRun's command hooks in Claude Code's settings.json, leaving every other key and hook alone.
 public enum ClaudeHooks {
-    public static let events = ["Notification", "Stop", "StopFailure"]
+    public static let events = ["Notification", "Stop", "StopFailure", "PermissionRequest"]
     public static let settingsURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
 
     public static func command(apprun: String) -> String { "'\(apprun)' hook" }
@@ -55,8 +55,12 @@ public enum ClaudeHooks {
     public static func installing(into settings: [String: Any], apprun: String) -> [String: Any] {
         var settings = removing(from: settings)
         var hooks = settings["hooks"] as? [String: Any] ?? [:]
-        let group: [String: Any] = ["hooks": [["type": "command", "command": command(apprun: apprun), "timeout": 10]]]
-        for event in events { hooks[event] = (hooks[event] as? [Any] ?? []) + [group] }
+        for event in events {
+            // PermissionRequest may wait for an answer from the phone (RemoteApproval.wait), up to Claude Code's 600 s cap.
+            let timeout = event == "PermissionRequest" ? 600 : 10
+            let group: [String: Any] = ["hooks": [["type": "command", "command": command(apprun: apprun), "timeout": timeout]]]
+            hooks[event] = (hooks[event] as? [Any] ?? []) + [group]
+        }
         settings["hooks"] = hooks
         return settings
     }

@@ -26,6 +26,8 @@ public struct AppSettings: Equatable, Sendable {
     public var idleAgentAlerts = true
     public var batteryAlerts = true
     public var jobAlerts = true
+    /// Claude Code permission prompts and plan approvals get Allow/Deny buttons on the ntfy push while you are away.
+    public var remoteApproval = false
     /// Only push inside this local window (e.g. 7→23); heat and battery warnings always go through.
     public var pushWindowEnabled = false
     public var pushStartHour = 7
@@ -56,6 +58,7 @@ public struct AppSettings: Equatable, Sendable {
         idleAgentAlerts = defaults.object(forKey: "idleAgentAlerts") as? Bool ?? fallback.idleAgentAlerts
         batteryAlerts = defaults.object(forKey: "batteryAlerts") as? Bool ?? fallback.batteryAlerts
         jobAlerts = defaults.object(forKey: "jobAlerts") as? Bool ?? fallback.jobAlerts
+        remoteApproval = defaults.bool(forKey: "remoteApproval")
         pushWindowEnabled = defaults.bool(forKey: "pushWindowEnabled")
         pushStartHour = defaults.object(forKey: "pushStartHour") as? Int ?? fallback.pushStartHour
         pushEndHour = defaults.object(forKey: "pushEndHour") as? Int ?? fallback.pushEndHour
@@ -82,6 +85,7 @@ public struct AppSettings: Equatable, Sendable {
         defaults.set(idleAgentAlerts, forKey: "idleAgentAlerts")
         defaults.set(batteryAlerts, forKey: "batteryAlerts")
         defaults.set(jobAlerts, forKey: "jobAlerts")
+        defaults.set(remoteApproval, forKey: "remoteApproval")
         defaults.set(pushWindowEnabled, forKey: "pushWindowEnabled")
         defaults.set(pushStartHour, forKey: "pushStartHour")
         defaults.set(pushEndHour, forKey: "pushEndHour")

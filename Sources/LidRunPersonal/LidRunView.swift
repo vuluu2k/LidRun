@@ -326,6 +326,8 @@ struct LidRunView: View {
             Divider()
             Text(t("pushFiltersHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
             toggleRow(t("pushIdleAgent"), "hourglass", .white, Binding(get: { model.idleAgentAlerts }, set: { model.setPushFilters(idleAgent: $0) }), "")
+            toggleRow(t("remoteApproval"), "checkmark.shield", .white, Binding(get: { model.remoteApproval }, set: { model.setRemoteApproval($0) }), "")
+            Text(t("remoteApprovalHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
             toggleRow(t("pushBattery"), "battery.25percent", .orange, Binding(get: { model.batteryAlerts }, set: { model.setPushFilters(battery: $0) }), "")
             toggleRow(t("pushJobs"), "list.number", .white, Binding(get: { model.jobAlerts }, set: { model.setPushFilters(jobs: $0) }), "")
             toggleRow(t("pushWindow"), "moon.zzz", .white, Binding(get: { model.pushWindowEnabled }, set: { model.setPushFilters(window: $0) }), "")
@@ -405,6 +407,12 @@ struct LidRunView: View {
                 Button(t(model.claudeHooksInstalled ? "remove" : "install")) { model.setClaudeHooks(!model.claudeHooksInstalled) }.controlSize(.mini)
             }
             Text(t("claudeHooksHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
+            HStack {
+                Text(t("codexNotify")).font(.caption)
+                Spacer()
+                Button(t(model.codexNotifyInstalled ? "remove" : "install")) { model.setCodexNotify(!model.codexNotifyInstalled) }.controlSize(.mini)
+            }
+            Text(t("codexNotifyHelp")).font(.system(size: 9)).foregroundStyle(.secondary)
             TextField(t("smartRules"), text: $customRulesDraft).textFieldStyle(.roundedBorder).controlSize(.small)
             Button(t("save")) { model.saveCustomRules(customRulesDraft) }.controlSize(.mini)
             Text(t("safetyNote")).font(.system(size: 9)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
