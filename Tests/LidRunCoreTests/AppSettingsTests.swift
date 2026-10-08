@@ -77,6 +77,7 @@ private func freshDefaults() -> UserDefaults {
     #expect(settings.allowsPush(event: "command_finished", now: day, calendar: calendar))
     #expect(!settings.allowsPush(event: "command_finished", now: night, calendar: calendar))
     #expect(settings.allowsPush(event: "battery_warning", now: night, calendar: calendar))   // safety ignores the window
+    #expect(settings.allowsPush(event: "memory_warning", now: night, calendar: calendar))
     settings.batteryAlerts = false
     #expect(!settings.allowsPush(event: "battery_warning", now: night, calendar: calendar))
 }

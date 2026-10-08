@@ -71,6 +71,8 @@ final class AppModel: ObservableObject {
     private var autoPaused = false
     private var closedLidChecklistAccepted = false
     private var heatWarned = false
+    private var memoryWarned = false
+    private var memoryPressure: DispatchSourceMemoryPressure?
     private var batteryWarned = false
     private var idleAgents = IdleAgentMonitor()
     private let jobQueue = JobQueue()
@@ -93,6 +95,12 @@ final class AppModel: ObservableObject {
             Task { @MainActor in self?.sessionChanged(state) }
         }
         refresh()
+        // Event-driven, no polling: at critical pressure macOS starts closing apps to free memory.
+        memoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: .critical, queue: .main)
+        memoryPressure?.setEventHandler { [weak self] in
+            Task { @MainActor in self?.memoryCritical() }
+        }
+        memoryPressure?.resume()
         monitor = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
@@ -301,6 +309,7 @@ final class AppModel: ObservableObject {
             }
             closedLidEnabled = true
             try? eventLog.append(RunEvent(type: .armed, reason: sleepDisabled ? "Closed-Lid Mode (sleep disabled)" : "Closed-Lid Mode (AC only)"))
+            warnAboutOtherKeepAwakeApps()
         } catch {
             errorMessage = String(describing: error)
         }
@@ -320,6 +329,25 @@ final class AppModel: ObservableObject {
         guard alert.runModal() == .alertFirstButtonReturn else { return false }
         if alert.suppressionButton?.state == .on { closedLidChecklistAccepted = true; saveSettings() }
         return true
+    }
+
+    /// Other keep-awake apps can release or re-enable sleep behind LidRun's back.
+    private static let otherKeepAwakeApps = [
+        "com.lidrun.app": "LidRun (lidrun.com)", "com.if.Amphetamine": "Amphetamine",
+        "info.marcel-dierkes.KeepingYouAwake": "KeepingYouAwake", "com.sindresorhus.Lungo": "Lungo",
+        "com.lightheadsw.caffeine": "Caffeine",
+    ]
+
+    private func warnAboutOtherKeepAwakeApps() {
+        let names = NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier.flatMap { Self.otherKeepAwakeApps[$0] } }
+        guard !names.isEmpty else { return }
+        publish(title: L10n.text("otherKeepAwakeTitle", language), body: String(format: L10n.text("otherKeepAwakeBody", language), names.joined(separator: ", ")), event: "conflict_warning")
+    }
+
+    private func memoryCritical() {
+        guard session.isActive, !memoryWarned else { return }
+        memoryWarned = true
+        publish(title: L10n.text("memoryWarningTitle", language), body: L10n.text("memoryWarningBody", language), event: "memory_warning")
     }
 
     private func confirmBatteryClosedLid() -> Bool {
@@ -613,6 +641,7 @@ final class AppModel: ObservableObject {
             releaseClosedLid()
             stopWatching()
             batteryWarned = false
+            memoryWarned = false
             let reason = (try? eventLog.recent(limit: 1).last?.reason) ?? "stopped"
             publish(title: L10n.text("notifStopped", language), body: L10n.text(reason, language), event: "stopped")
         }

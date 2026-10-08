@@ -90,7 +90,7 @@ public struct AppSettings: Equatable, Sendable {
     /// Whether an event may reach the phone (ntfy) and macOS alerts. Webhooks are not filtered.
     public func allowsPush(event: String, now: Date = Date(), calendar: Calendar = .current) -> Bool {
         switch event {
-        case "test", "thermal_warning": return true
+        case "test", "thermal_warning", "memory_warning": return true
         case "battery_warning": return batteryAlerts
         case "agent_idle": if !idleAgentAlerts { return false }
         case "command_finished", "queue_finished": if !jobAlerts { return false }
